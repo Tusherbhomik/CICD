@@ -2,9 +2,11 @@ package com.prescription.dto;
 
 import com.prescription.entity.User;
 import jakarta.validation.constraints.*;
+import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDate;
 
+@Builder
 @Data
 public class SignUpRequest {
 
