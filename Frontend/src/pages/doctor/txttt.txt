@@ -1,0 +1,679 @@
+http://localhost:8080/api/patients this api endpoint works 
+
+GET  request ,
+
+response  
+[
+    {
+        "id": 2,
+        "name": "Jane Doe",
+        "email": "patient1@example.com",
+        "phone": "+8801712345678",
+        "role": "PATIENT",
+        "birthDate": "1985-02-20",
+        "gender": "FEMALE"
+    },
+    {
+        "id": 18,
+        "name": "Test Patient",
+        "email": "testpatient81@example.com",
+        "phone": "1234567890",
+        "role": "PATIENT",
+        "birthDate": "1990-01-15",
+        "gender": "MALE"
+    },
+    {
+        "id": 13,
+        "name": "Test Patient",
+        "email": "testpatient@example.com",
+        "phone": "1234567890",
+        "role": "PATIENT",
+        "birthDate": "1990-01-15",
+        "gender": "MALE"
+    },
+    {
+        "id": 15,
+        "name": "Test Patient",
+        "email": "testpatient1@example.com",
+        "phone": "1234567890",
+        "role": "PATIENT",
+        "birthDate": "1990-01-15",
+        "gender": "MALE"
+    }
+]
+
+ front end  code  : 
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/calendar";
+import { useToast } from "@/components/ui/use-toast";
+// import PageLayout from '@/components/layout/PageLayout';
+import { X, Plus, Search } from 'lucide-react';
+import { debounce } from 'lodash'; // Add this import - npm install lodash if needed
+import MainLayout from '@/components/layout/MainLayout';
+// Updated Patient interface to match the API response
+interface Patient {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  age: number;
+  gender: string;
+}
+
+// Medicine interface to match the API response
+interface Medicine {
+  id: number;
+  name: string;
+  dosage: string;
+  timing?: string;
+  instructions?: string;
+  manufacturer?: string;
+}
+
+// API response interface for paginated results
+interface PaginatedResponse<T> {
+  content: T[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: {
+      empty: boolean;
+      sorted: boolean;
+      unsorted: boolean;
+    };
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  last: boolean;
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  sort: {
+    empty: boolean;
+    sorted: boolean;
+    unsorted: boolean;
+  };
+  first: boolean;
+  numberOfElements: number;
+  empty: boolean;
+}
+
+// Interface for medicine in the form
+interface MedicineForm {
+  medicine: string;
+  dosage: string;
+  timing: string;
+  instructions: string;
+}
+
+// Interface for prescription data
+interface PrescriptionFormData {
+  patientId: string;
+  diseaseDescription: string;
+  followUpDate: Date | null;
+  advice: string;
+}
+
+const NewPrescription = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Form state
+  const [prescriptionData, setPrescriptionData] = useState<PrescriptionFormData>({
+    patientId: '',
+    diseaseDescription: '',
+    followUpDate: null,
+    advice: '',
+  });
+
+  // Medicines state (multiple medicines can be added)
+  const [medicines, setMedicines] = useState<MedicineForm[]>([
+    { medicine: '', dosage: '', timing: '', instructions: '' }
+  ]);
+
+  const [medicineSearchQuery, setMedicineSearchQuery] = useState('');
+  const [filteredMedicines, setFilteredMedicines] = useState<string[]>([]);
+  const [showMedicineDropdown, setShowMedicineDropdown] = useState(false);
+  const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
+
+  // New medicine search states
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchPage, setSearchPage] = useState(0);
+  const [hasMoreResults, setHasMoreResults] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]); // State for fetched patients
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true); // Loading state for patients
+
+  useEffect(() => {
+    // Check if user is logged in as doctor
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'doctor') {
+      toast({
+        title: "Access denied",
+        description: "You must be logged in as a doctor to write prescriptions.",
+        variant: "destructive",
+      });
+      navigate('/login');
+    }
+
+    // Fetch patients from the backend
+    const fetchPatients = async () => {
+      console.log('Fetching patients...');
+      setIsLoadingPatients(true);
+      try {
+        const response = await fetch('http://localhost:8080/api/patients', {
+          method: 'GET',
+          headers: {
+            // 'Content-Type' is not needed for a GET request without a body.
+            // 'Authorization': 'Bearer your-jwt-token' // Keep this if you use token auth
+          }, // <--- FIX: Added a comma here
+          credentials: 'include' // This correctly tells the browser to send cookies
+        });
+        console.log('API Response (Patients):', response.body);
+        if (!response.ok) {
+          throw new Error('Failed to fetch patients');
+        }
+        const data: PaginatedResponse<Patient> = await response.json();
+        console.log('API Response (Patients):', data);
+
+        // Extract patients from the content array
+        setPatients(data.content || []);
+      } catch (error) {
+        console.error("Error fetching patients:", error);
+        toast({
+          title: "Error",
+          description: "Could not fetch patients list. Please try again later.",
+          variant: "destructive",
+        });
+        setPatients([]); // Set to empty array on error
+      } finally {
+        setIsLoadingPatients(false);
+      }
+    };
+
+    fetchPatients();
+  }, [navigate, toast]);
+
+  // Debounced search function for medicines
+  const debouncedSearch = useCallback(
+    debounce((searchTerm: string, index: number) => {
+      if (searchTerm.length < 2) {
+        setFilteredMedicines([]);
+        setShowMedicineDropdown(false);
+        return;
+      }
+      
+      // Reset pagination before starting a new search
+      setSearchPage(0);
+      setHasMoreResults(true);
+      setSelectedIndex(0);
+      
+      setIsSearching(true);
+      fetch(`http://localhost:8080/api/search/medicines?name=${encodeURIComponent(searchTerm)}&page=0&size=10`)
+        .then(response => {
+          if (!response.ok) throw new Error('Search failed');
+          return response.json();
+        })
+        .then(data => {
+          const medicineNames = data.content.map((med: Medicine) => med.name);
+          setFilteredMedicines(medicineNames);
+          setShowMedicineDropdown(medicineNames.length > 0);
+          setActiveSearchIndex(index);
+          
+          // Check if there are more pages
+          setHasMoreResults(!data.last);
+        })
+        .catch(error => {
+          console.error("Error searching medicines:", error);
+          setFilteredMedicines([]);
+          setShowMedicineDropdown(false);
+        })
+        .finally(() => {
+          setIsSearching(false);
+        });
+    }, 300), // 300ms debounce time
+    []
+  );
+
+  // Function to load more results
+  const loadMoreResults = async () => {
+    if (!hasMoreResults || isSearching) return;
+    
+    setIsSearching(true);
+    try {
+      const nextPage = searchPage + 1;
+      const response = await fetch(`http://localhost:8080/api/search/medicines?name=${encodeURIComponent(medicineSearchQuery)}&page=${nextPage}&size=10`);
+      
+      if (!response.ok) throw new Error('Failed to load more results');
+      
+      const data = await response.json();
+      if (data.content.length > 0) {
+        const newMedicineNames = data.content.map((med: Medicine) => med.name);
+        setFilteredMedicines(prev => [...prev, ...newMedicineNames]);
+        setSearchPage(nextPage);
+        // Check if we've reached the last page
+        setHasMoreResults(!data.last);
+      } else {
+        setHasMoreResults(false);
+      }
+    } catch (error) {
+      console.error("Error loading more results:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setPrescriptionData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setPrescriptionData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleDateChange = (date: Date | undefined) => {
+    setPrescriptionData(prev => ({ ...prev, followUpDate: date || null }));
+  };
+
+  // Updated medicine change handler to use debounced search
+  const handleMedicineChange = (index: number, field: string, value: string) => {
+    const updatedMedicines = [...medicines];
+    updatedMedicines[index] = { ...updatedMedicines[index], [field]: value };
+    setMedicines(updatedMedicines);
+
+    if (field === 'medicine') {
+      setMedicineSearchQuery(value);
+      setActiveSearchIndex(index);
+      
+      // Use the debounced search function
+      debouncedSearch(value, index);
+    }
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (!showMedicineDropdown) return;
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, filteredMedicines.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (filteredMedicines.length > 0) {
+          handleMedicineSelect(index, filteredMedicines[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowMedicineDropdown(false);
+        break;
+    }
+  };
+
+  // Updated medicine select handler
+  const handleMedicineSelect = (index: number, medicine: string) => {
+    const updatedMedicines = [...medicines];
+    updatedMedicines[index] = { ...updatedMedicines[index], medicine };
+    setMedicines(updatedMedicines);
+    setShowMedicineDropdown(false);
+    setMedicineSearchQuery('');
+    setSelectedIndex(0); // Reset selection index
+  };
+
+  const addMedicineField = () => {
+    setMedicines([...medicines, { medicine: '', dosage: '', timing: '', instructions: '' }]);
+  };
+
+  const removeMedicineField = (index: number) => {
+    if (medicines.length > 1) {
+      const updatedMedicines = medicines.filter((_, i) => i !== index);
+      setMedicines(updatedMedicines);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (!prescriptionData.patientId) {
+      toast({
+        title: "Error",
+        description: "Please select a patient.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!prescriptionData.diseaseDescription) {
+      toast({
+        title: "Error",
+        description: "Please enter a disease description.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (medicines.some(m => !m.medicine || !m.dosage || !m.timing)) {
+      toast({
+        title: "Error",
+        description: "Please complete all medicine fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Prepare data for API
+      const requestData = {
+        patientId: parseInt(prescriptionData.patientId, 10),
+        diseaseDescription: prescriptionData.diseaseDescription,
+        followUpDate: prescriptionData.followUpDate,
+        advice: prescriptionData.advice,
+        status: "ACTIVE", // Assuming default status
+        issueDate: new Date(), // Current date
+        medicines: medicines.map(med => ({
+          name: med.medicine,
+          dosage: med.dosage,
+          timing: med.timing,
+          instructions: med.instructions || "",
+          manufacturer: "Unknown" // Adding manufacturer field as required by backend
+        }))
+      };
+
+      // Get the auth token from localStorage
+      const token = localStorage.getItem('token');
+
+      // Call the API
+      const response = await fetch('http://localhost:8080/api/prescriptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create prescription');
+      }
+
+      // Show success message
+      toast({
+        title: "Success",
+        description: "Prescription has been created successfully.",
+      });
+
+      // Navigate back to dashboard
+      navigate('/doctor/dashboard');
+    } catch (error) {
+      console.error("Error creating prescription:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create prescription. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <MainLayout userType="doctor">
+      <div className="medical-container py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Create New Prescription</h1>
+          <p className="text-gray-600">Fill out the form below to write a prescription for a patient.</p>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <Card className="p-6">
+            {/* Patient Selection */}
+            <div className="mb-6">
+              <Label htmlFor="patientId" className="text-lg font-medium">Patient Information</Label>
+              <div className="mt-2">
+                <Select
+                  value={prescriptionData.patientId}
+                  onValueChange={(value) => handleSelectChange('patientId', value)}
+                  disabled={isLoadingPatients} // Disable select while loading
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingPatients ? "Loading patients..." : "Select a patient"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingPatients ? (
+                      <SelectItem value="loading" disabled>Loading...</SelectItem>
+                    ) : patients.length > 0 ? (
+                      patients.map(patient => (
+                        <SelectItem key={patient.id} value={patient.id.toString()}>{patient.name}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-patients" disabled>No patients found</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Disease Description */}
+            <div className="mb-6">
+              <Label htmlFor="diseaseDescription" className="text-lg font-medium">Diagnosis / Disease Description</Label>
+              <div className="mt-2">
+                <Textarea
+                  id="diseaseDescription"
+                  name="diseaseDescription"
+                  value={prescriptionData.diseaseDescription}
+                  onChange={handleInputChange}
+                  placeholder="Enter diagnosis or disease description"
+                  className="h-24"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Medicines Section */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <Label className="text-lg font-medium">Medicines</Label>
+                <Button
+                  type="button"
+                  onClick={addMedicineField}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center text-medical-primary border-medical-primary"
+                >
+                  <Plus className="mr-1" size={16} /> Add Medicine
+                </Button>
+              </div>
+
+              {medicines.map((medicine, index) => (
+                <div
+                  key={index}
+                  className="p-4 mb-4 border border-gray-200 rounded-md bg-gray-50 relative"
+                >
+                  {medicines.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeMedicineField(index)}
+                      className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <Label htmlFor={`medicine-${index}`} className="block mb-1">Medicine Name</Label>
+                      <div className="relative">
+                        <div className="relative">
+                          <Input
+                            id={`medicine-${index}`}
+                            value={medicine.medicine}
+                            onChange={(e) => handleMedicineChange(index, 'medicine', e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
+                            onFocus={() => {
+                              setActiveSearchIndex(index);
+                              if (medicine.medicine.length > 1) {
+                                debouncedSearch(medicine.medicine, index);
+                              }
+                            }}
+                            placeholder="Search for medicine"
+                            className="pl-9" // Add padding for the search icon
+                            required
+                          />
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+                        </div>
+
+                        {showMedicineDropdown && activeSearchIndex === index && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {isSearching ? (
+                              <div className="px-4 py-2 text-gray-500 flex items-center justify-center">
+                                <div className="animate-spin h-4 w-4 border-2 border-medical-primary rounded-full mr-2 border-t-transparent"></div>
+                                Searching...
+                              </div>
+                            ) : filteredMedicines.length > 0 ? (
+                              <>
+                                {filteredMedicines.map((med, i) => (
+                                  <div
+                                    key={i}
+                                    className={`px-4 py-2 hover:bg-gray-100 cursor-pointer ${i === selectedIndex ? 'bg-gray-100' : ''}`}
+                                    onClick={() => handleMedicineSelect(index, med)}
+                                  >
+                                    {med}
+                                  </div>
+                                ))}
+                                {hasMoreResults && (
+                                  <div 
+                                    className="px-4 py-2 text-center text-medical-primary hover:bg-gray-100 cursor-pointer border-t border-gray-100"
+                                    onClick={() => loadMoreResults()}
+                                  >
+                                    Show more results
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="px-4 py-2 text-gray-500">No matches found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor={`dosage-${index}`} className="block mb-1">Dosage</Label>
+                      <Select
+                        value={medicine.dosage}
+                        onValueChange={(value) => handleMedicineChange(index, 'dosage', value)}
+                      >
+                        <SelectTrigger id={`dosage-${index}`}>
+                          <SelectValue placeholder="Select dosage" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Once daily</SelectItem>
+                          <SelectItem value="2">Twice daily</SelectItem>
+                          <SelectItem value="3">Three times daily</SelectItem>
+                          <SelectItem value="4">Four times daily</SelectItem>
+                          <SelectItem value="sos">When required (SOS)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor={`timing-${index}`} className="block mb-1">When to Take</Label>
+                      <Select
+                        value={medicine.timing}
+                        onValueChange={(value) => handleMedicineChange(index, 'timing', value)}
+                      >
+                        <SelectTrigger id={`timing-${index}`}>
+                          <SelectValue placeholder="Select timing" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="before_meal">Before meals</SelectItem>
+                          <SelectItem value="after_meal">After meals</SelectItem>
+                          <SelectItem value="with_meal">With meals</SelectItem>
+                          <SelectItem value="empty_stomach">On empty stomach</SelectItem>
+                          <SelectItem value="bedtime">At bedtime</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor={`instructions-${index}`} className="block mb-1">Special Instructions (Optional)</Label>
+                      <Input
+                        id={`instructions-${index}`}
+                        value={medicine.instructions}
+                        onChange={(e) => handleMedicineChange(index, 'instructions', e.target.value)}
+                        placeholder="Any special instructions"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Follow-up Date */}
+            <div className="mb-6">
+              <Label htmlFor="followUpDate" className="text-lg font-medium">Follow-up Date</Label>
+              <div className="mt-2">
+                <DatePicker
+                  selected={prescriptionData.followUpDate}
+                  onSelect={handleDateChange}
+                  placeholder="Select follow-up date"
+                  disabled={(date) => date < new Date()} // Optional: Disable past dates
+                />
+              </div>
+            </div>
+
+            {/* Advice */}
+            <div className="mb-6">
+              <Label htmlFor="advice" className="text-lg font-medium">Advice</Label>
+              <div className="mt-2">
+                <Textarea
+                  id="advice"
+                  name="advice"
+                  value={prescriptionData.advice}
+                  onChange={handleInputChange}
+                  placeholder="Enter advice"
+                  className="h-24"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit"}
+            </Button>
+          </Card>
+        </form>
+      </div>
+    </MainLayout>
+  );
+};
+
+export default NewPrescription;
+
+
+
+error  : failed to fetch patients
