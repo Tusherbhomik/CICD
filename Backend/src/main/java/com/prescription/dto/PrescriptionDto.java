@@ -1,10 +1,15 @@
 package com.prescription.dto;
 
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public class PrescriptionDto {
+
+
     private Long id;
     private String diagnosis;
     private LocalDate issueDate;

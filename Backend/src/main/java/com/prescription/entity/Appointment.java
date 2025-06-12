@@ -148,7 +148,7 @@ public class Appointment {
 
     // Enums
     public enum Status {
-        SCHEDULED, CONFIRMED, COMPLETED, CANCELLED
+        REQUESTED, SCHEDULED, CONFIRMED, COMPLETED, CANCELLED
     }
 
     public enum Type {

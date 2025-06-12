@@ -31,7 +31,7 @@ public class PrescriptionController {
             if (doctorId == null) {
                 return ResponseEntity.badRequest().body(new ErrorResponse("Doctor ID not found in request"));
             }
-
+            System.out.println(createDto.getAdvice());
             PrescriptionDto prescription = prescriptionService.createPrescription(createDto, doctorId);
             return ResponseEntity.ok(prescription);
 
@@ -57,8 +57,28 @@ public class PrescriptionController {
         }
     }
 
+    @GetMapping("/patient")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<List<PrescriptionDto>> getPatientPrescriptions(HttpServletRequest request) {
+        try {
+            Long patientId = (Long) request.getAttribute("userId");
+            if (patientId == null) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            List<PrescriptionDto> prescriptions = prescriptionService.getPrescriptionsByPatient(patientId);
+            return ResponseEntity.ok(prescriptions);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+
+
+
     @GetMapping("/patient/{patientId}")
-    @PreAuthorize("hasRole('DOCTOR')")
+   @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<List<PrescriptionDto>> getPatientPrescriptions(@PathVariable Long patientId) {
         try {
             List<PrescriptionDto> prescriptions = prescriptionService.getPrescriptionsByPatient(patientId);

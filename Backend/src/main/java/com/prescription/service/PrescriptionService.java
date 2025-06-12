@@ -58,6 +58,8 @@ public class PrescriptionService {
         prescription.setFollowUpDate(createDto.getFollowUpDate());
         prescription.setCreatedAt(LocalDateTime.now());
         prescription.setUpdatedAt(LocalDateTime.now());
+        prescription.setAdvice(createDto.getAdvice());
+
 
         prescription = prescriptionRepository.save(prescription);
 

@@ -153,6 +153,39 @@ public class UserService {
         return mapToPatientResponse(patient);
     }
 
+    public List<User> searchDoctors(String specialization, String location, String name) {
+        // If all parameters are null, return all available doctors
+//        if (specialization == null && location == null && name == null) {
+//            return userRepository.findByRoleAndAvailable("DOCTOR", true);
+//        }
+////
+//        // Build dynamic query based on provided parameters
+//        if (specialization != null && location != null && name != null) {
+//            return userRepository.findByRoleAndSpecializationContainingIgnoreCaseAndLocationContainingIgnoreCaseAndNameContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", specialization, location, name, true);
+//        } else if (specialization != null && location != null) {
+//            return userRepository.findByRoleAndSpecializationContainingIgnoreCaseAndLocationContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", specialization, location, true);
+//        } else if (specialization != null && name != null) {
+//            return userRepository.findByRoleAndSpecializationContainingIgnoreCaseAndNameContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", specialization, name, true);
+//        } else if (location != null && name != null) {
+//            return userRepository.findByRoleAndLocationContainingIgnoreCaseAndNameContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", location, name, true);
+//        } else if (specialization != null) {
+//            return userRepository.findByRoleAndSpecializationContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", specialization, true);
+//        } else if (location != null) {
+//            return userRepository.findByRoleAndLocationContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", location, true);
+//        } else if (name != null) {
+//            return userRepository.findByRoleAndNameContainingIgnoreCaseAndAvailable(
+//                    "DOCTOR", name, true);
+//        }
+
+        return userRepository.findAllDoctors();
+    }
+
     private PatientResponse mapToPatientResponse(Patient patient) {
         User user = patient.getUser();
 
