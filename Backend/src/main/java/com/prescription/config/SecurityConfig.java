@@ -65,6 +65,7 @@ public class SecurityConfig {
                         auth.requestMatchers("/auth/**").permitAll()
                                 .requestMatchers("/medicines/search/**").hasRole("DOCTOR")
                                 .requestMatchers("/patients/**").hasRole("DOCTOR")
+                                .requestMatchers("/api/appointments/request").hasAnyRole("PATIENT") // Allow patients and doctors
                                 .anyRequest().authenticated()
                 );
 

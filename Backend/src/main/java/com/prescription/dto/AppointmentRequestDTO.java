@@ -1,36 +1,63 @@
 package com.prescription.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import com.fasterxml.jackson.annotation.JsonFormat;
+
+import com.prescription.entity.Appointment;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Size;
 
-public class AppointmentRequestDTO {
+import java.time.LocalDate;
+import java.time.LocalTime;
 
-    @NotNull(message = "Doctor ID is required")
-    private Long doctorId;
+public class AppointmentRequestDTO {
 
     @NotNull(message = "Patient ID is required")
     private Long patientId;
 
-    @NotBlank(message = "Reason is required")
-    @Size(max = 500, message = "Reason must not exceed 500 characters")
+    @NotNull(message = "Doctor ID is required")
+    private Long doctorId;
+
+    @NotNull(message = "Appointment date is required")
+    @Future(message = "Appointment date must be in the future")
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate appointmentDate;
+
+    @NotNull(message = "Appointment time is required")
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime appointmentTime;
+
+    @NotNull(message = "Appointment type is required")
+    private Appointment.Type type;
+
+    @NotBlank(message = "Reason for visit is required")
+    @Size(max = 500, message = "Reason cannot exceed 500 characters")
     private String reason;
 
-    @NotBlank(message = "Preferred time slot is required")
-    private String preferredTimeSlot;
+    // Default constructor
+    public AppointmentRequestDTO() {}
 
-    // Constructors
-    public AppointmentRequestDTO() {
-    }
-
-    public AppointmentRequestDTO(Long doctorId, Long patientId, String reason, String preferredTimeSlot) {
-        this.doctorId = doctorId;
+    // Constructor with all fields
+    public AppointmentRequestDTO(Long patientId, Long doctorId, LocalDate appointmentDate,
+                                 LocalTime appointmentTime, Appointment.Type type, String reason) {
         this.patientId = patientId;
+        this.doctorId = doctorId;
+        this.appointmentDate = appointmentDate;
+        this.appointmentTime = appointmentTime;
+        this.type = type;
         this.reason = reason;
-        this.preferredTimeSlot = preferredTimeSlot;
     }
 
     // Getters and Setters
+    public Long getPatientId() {
+        return patientId;
+    }
+
+    public void setPatientId(Long patientId) {
+        this.patientId = patientId;
+    }
+
     public Long getDoctorId() {
         return doctorId;
     }
@@ -39,12 +66,28 @@ public class AppointmentRequestDTO {
         this.doctorId = doctorId;
     }
 
-    public Long getPatientId() {
-        return patientId;
+    public LocalDate getAppointmentDate() {
+        return appointmentDate;
     }
 
-    public void setPatientId(Long patientId) {
-        this.patientId = patientId;
+    public void setAppointmentDate(LocalDate appointmentDate) {
+        this.appointmentDate = appointmentDate;
+    }
+
+    public LocalTime getAppointmentTime() {
+        return appointmentTime;
+    }
+
+    public void setAppointmentTime(LocalTime appointmentTime) {
+        this.appointmentTime = appointmentTime;
+    }
+
+    public Appointment.Type getType() {
+        return type;
+    }
+
+    public void setType(Appointment.Type type) {
+        this.type = type;
     }
 
     public String getReason() {
@@ -55,11 +98,16 @@ public class AppointmentRequestDTO {
         this.reason = reason;
     }
 
-    public String getPreferredTimeSlot() {
-        return preferredTimeSlot;
+    @Override
+    public String toString() {
+        return "AppointmentRequestDTO{" +
+                "patientId=" + patientId +
+                ", doctorId=" + doctorId +
+                ", appointmentDate=" + appointmentDate +
+                ", appointmentTime=" + appointmentTime +
+                ", type=" + type +
+                ", reason='" + reason + '\'' +
+                '}';
     }
 
-    public void setPreferredTimeSlot(String preferredTimeSlot) {
-        this.preferredTimeSlot = preferredTimeSlot;
-    }
 }

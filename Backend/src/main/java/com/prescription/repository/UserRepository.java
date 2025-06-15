@@ -1,6 +1,5 @@
 package com.prescription.repository;
 
-import com.prescription.dto.PatientResponse;
 import com.prescription.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findAllPatients();
     @Query("SELECT u FROM User u WHERE u.role = 'DOCTOR'")
     List<User> findAllDoctors();
+
+    Optional<User> findById(Long id);
 
 //    List<User> findByRoleAndAvailable(String role, boolean available);
 

@@ -1,8 +1,10 @@
 package com.prescription.service;
 
 import com.prescription.dto.*;
+import com.prescription.entity.Doctor;
 import com.prescription.entity.Patient;
 import com.prescription.entity.User;
+import com.prescription.repository.DoctorRepository;
 import com.prescription.repository.PatientRepository;
 import com.prescription.repository.UserRepository;
 import com.prescription.util.JwtUtil;
@@ -16,7 +18,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -30,6 +31,8 @@ public class UserService {
 
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private DoctorRepository doctorRepository;
 
     public LoginResponse authenticate(LoginRequest loginRequest) {
         Optional<User> userOpt = userRepository.findByEmail(loginRequest.getEmail());
@@ -153,7 +156,7 @@ public class UserService {
         return mapToPatientResponse(patient);
     }
 
-    public List<User> searchDoctors(String specialization, String location, String name) {
+    public List<User> searchDoctors(String specialization,String name) {
         // If all parameters are null, return all available doctors
 //        if (specialization == null && location == null && name == null) {
 //            return userRepository.findByRoleAndAvailable("DOCTOR", true);
@@ -209,4 +212,47 @@ public class UserService {
                 .patientUpdatedAt(patient.getUpdatedAt())
                 .build();
     }
+
+    public List<UserDto> getAllDoctors() {
+        List<User> doctorUsers = userRepository.findAllDoctors();
+
+        // Convert to PatientResponse DTOs
+        List<UserDto> responses = new ArrayList<>();
+        for (User user : doctorUsers) {
+            responses.add(convertToDto(user));
+        }
+        return responses;
+    }
+
+    public DoctorResponse getDoctorBYid(Long id)  {
+        Doctor doctor= doctorRepository.findByUserId(id)
+                .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + id));
+
+        return mapToDoctorResponse(doctor);
+    }
+
+    private DoctorResponse mapToDoctorResponse(Doctor doctor) {
+        User user = doctor.getUser();
+
+        return DoctorResponse.builder()
+                // User data
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .birthDate(user.getBirthDate())
+                .gender(user.getGender())
+                .profileImage(user.getProfileImage())
+                .isVerified(user.getIsVerified())
+                .lastLogin(user.getLastLogin())
+                .createdAt(user.getCreatedAt())
+                // Patient-specific data
+                .institute(doctor.getInstitute())
+                .licenseNumber(doctor.getLicenseNumber())
+                .specialization(doctor.getSpecialization())
+                .doctorCreatedAt(doctor.getCreatedAt())
+                .doctorUpdatedAt(doctor.getUpdatedAt())
+                .build();
+    }
+
 }

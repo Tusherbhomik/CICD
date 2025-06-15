@@ -8,6 +8,7 @@ import com.prescription.entity.Appointment;
 import com.prescription.entity.User;
 import com.prescription.service.AppointmentService;
 import com.prescription.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,7 +24,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/appointments")
+@RequestMapping("/appointments")
 @CrossOrigin(origins = "*")
 public class AppointmentController {
 
@@ -35,34 +36,20 @@ public class AppointmentController {
 
     // ============= PATIENT ENDPOINTS =============
 
-    /**
-     * Patient searches for doctors by specialization, location, etc.
-     */
-    @GetMapping("/doctors/search")
-    public ResponseEntity<List<DoctorSearchDTO>> searchDoctors(
-            @RequestParam(required = false) String specialization,
-            @RequestParam(required = false) String location,
-            @RequestParam(required = false) String name) {
-        try {
-            List<User> doctors = userService.searchDoctors(specialization, location, name);
-            List<DoctorSearchDTO> doctorDTOs = doctors.stream()
-                    .map(this::convertToDoctorSearchDTO)
-                    .collect(Collectors.toList());
-            return ResponseEntity.ok(doctorDTOs);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
+
+
 
     /**
      * Patient requests appointment with a specific doctor
      */
     @PostMapping("/request")
-    public ResponseEntity<Map<String, Object>> requestAppointment(@Valid @RequestBody AppointmentRequestDTO request) {
+    public ResponseEntity<Map<String, Object>> requestAppointment(@Valid @RequestBody AppointmentRequestDTO request, HttpServletRequest request2) {
         Map<String, Object> response = new HashMap<>();
         try {
+            System.out.println(request);
+            System.out.println("-----------tusher mara khaw tumi--------------------------");
             // Validate patient and doctor exist
-            Optional<User> patient = userService.getUserById(request.getPatientId());
+            Optional<User> patient = userService.getUserById((Long) request2.getAttribute("userId"));
             Optional<User> doctor = userService.getUserById(request.getDoctorId());
 
             if (patient == null) {
@@ -77,17 +64,19 @@ public class AppointmentController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            if (!doctor.get().getRole().equals("DOCTOR")) {
-                response.put("success", false);
-                response.put("message", "Selected user is not a doctor");
-                return ResponseEntity.badRequest().body(response);
-            }
+
 
             Appointment appointment = appointmentService.requestAppointment(
                     request.getDoctorId(),
                     request.getPatientId(),
-                    request.getReason(),
-                    request.getPreferredTimeSlot()
+
+                    request.getAppointmentDate(),
+                    request.getAppointmentTime(),
+                    request.getType(),
+
+
+                    request.getReason()
+
             );
 
             response.put("success", true);

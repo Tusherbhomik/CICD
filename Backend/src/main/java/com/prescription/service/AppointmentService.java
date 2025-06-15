@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 @Service
@@ -190,7 +191,8 @@ public class AppointmentService {
     }
 
     // Patient requests appointment (existing method enhanced)
-    public Appointment requestAppointment(Long doctorId, Long patientId, String reason, String preferredTimeSlot) {
+    public Appointment requestAppointment( Long doctorId,Long patientId, LocalDate appointmentDate,
+                                          LocalTime appointmentTime, Appointment.Type type, String reason) {
         User doctor = userRepository.findById(doctorId)
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
         User patient = userRepository.findById(patientId)
@@ -199,7 +201,13 @@ public class AppointmentService {
 
         //   needs to be checked here //
 
-        Appointment appointment = new Appointment( LocalDateTime.now(), Appointment.Type.IN_PERSON, doctor, patient);
+        Appointment appointment = new Appointment(LocalDateTime.of(appointmentDate,appointmentTime) , type, doctor, patient);
+        appointment.setNotes(reason);
+        appointment.setFollowupDate(LocalDateTime.of(appointmentDate,appointmentTime));
+        appointment.setCreatedAt(LocalDateTime.now());
+        appointment.setUpdatedAt(LocalDateTime.now());
+        //appointment.setStatus(Appointment.Status.s);
+
         return appointmentRepository.save(appointment);
     }
 
