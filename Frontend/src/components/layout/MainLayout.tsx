@@ -1,20 +1,19 @@
-import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  FileText,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  User,
-  Heart,
   Activity,
   Bell,
+  Calendar,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  User,
+  Users,
+  X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -33,8 +32,8 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
       icon: LayoutDashboard,
     },
     {
-      title: "Patients",
-      href: "/doctor/patients",
+      title: "Recent Prescriptions",
+      href: "/doctor/prescriptions",
       icon: Users,
     },
     {
@@ -177,4 +176,4 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
   );
 };
 
-export default MainLayout; 
+export default MainLayout;
