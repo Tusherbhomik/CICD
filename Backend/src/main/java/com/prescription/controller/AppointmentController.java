@@ -52,7 +52,7 @@ public class AppointmentController {
             Optional<User> patient = userService.getUserById((Long) request2.getAttribute("userId"));
             Optional<User> doctor = userService.getUserById(request.getDoctorId());
 
-            if (patient == null) {
+            if (patient.isEmpty()) {
                 response.put("success", false);
                 response.put("message", "Patient not found");
                 return ResponseEntity.badRequest().body(response);
@@ -68,7 +68,7 @@ public class AppointmentController {
 
             Appointment appointment = appointmentService.requestAppointment(
                     request.getDoctorId(),
-                    request.getPatientId(),
+                    (Long) request2.getAttribute("userId"),
 
                     request.getAppointmentDate(),
                     request.getAppointmentTime(),

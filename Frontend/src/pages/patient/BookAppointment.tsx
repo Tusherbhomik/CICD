@@ -427,11 +427,11 @@ const BookAppointment = ({ patientId = 1 }) => {
                   <div className="p-6 text-center">
                     <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-green-800 mb-2">
-                      Appointment Booked!
+                      Appointment Request Successfully Sent!
                     </h2>
                     <p className="text-gray-600 mb-4">
                       Your appointment with {selectedDoctor?.name} has been
-                      successfully scheduled.
+                      successfully requested.
                     </p>
                     <div className="bg-green-50 p-4 rounded-lg text-left">
                       <p className="text-sm text-green-800">
