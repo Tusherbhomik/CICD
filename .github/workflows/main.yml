@@ -174,8 +174,8 @@ jobs:
 
     - name: Deploy notification
       run: |
-        echo "✅ Build completed successfully!"
+        echo " Build completed successfully!"
         echo "Backend JAR: $(ls ./deploy/backend/)"
         echo "Frontend build ready in ./deploy/frontend/"
         echo ""
-        echo "🚀 Ready for deployment!"
+        echo " Ready for deployment!"
