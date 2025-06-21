@@ -148,9 +148,14 @@ public class AppointmentController {
     /**
      * Doctor gets pending appointment requests
      */
-    @GetMapping("/doctor/{doctorId}/pending")
-    public ResponseEntity<List<AppointmentResponseDTO>> getPendingRequests(@PathVariable Long doctorId) {
+    @GetMapping("/doctor/pending")
+    public ResponseEntity<List<AppointmentResponseDTO>> getPendingRequests(HttpServletRequest request2) {
         try {
+            Long doctorId = (Long) request2.getAttribute("userId");
+            if (doctorId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
             List<Appointment> requests = appointmentService.getPendingRequests(doctorId);
             List<AppointmentResponseDTO> requestDTOs = requests.stream()
                     .map(this::convertToResponseDTO)
@@ -233,9 +238,13 @@ public class AppointmentController {
     /**
      * Doctor gets confirmed appointments
      */
-    @GetMapping("/doctor/{doctorId}/confirmed")
-    public ResponseEntity<List<AppointmentResponseDTO>> getConfirmedAppointments(@PathVariable Long doctorId) {
+    @GetMapping("/doctor/confirmed")
+    public ResponseEntity<List<AppointmentResponseDTO>> getConfirmedAppointments(HttpServletRequest request) {
         try {
+            Long doctorId = (Long) request.getAttribute("userId");
+            if (doctorId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
             List<Appointment> appointments = appointmentService.getConfirmedAppointments(doctorId);
             List<AppointmentResponseDTO> appointmentDTOs = appointments.stream()
                     .map(this::convertToResponseDTO)

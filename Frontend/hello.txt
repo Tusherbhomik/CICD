@@ -1,0 +1,1 @@
+INSERT INTO public.users (id, birth_date, created_at, email, gender, is_verified, last_login, name, password_hash, phone, profile_image, role, updated_at) VALUES (5, '2025-04-30', NULL, 'avik@example.com', 'MALE', false, '2025-05-27 21:48:37.874571', 'Avik', '$2a$10$kU7g11x66X8/LVz4hagnMOycqiu.EwOI0QMr9trEhEhUNiNvdE6t2', '123456789', NULL, 'DOCTOR', NULL);

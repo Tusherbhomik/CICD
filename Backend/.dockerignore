@@ -1,0 +1,8 @@
+target/
+!target/prescription-system-0.0.1-SNAPSHOT.jar
+.mvn/wrapper/maven-wrapper.jar
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore

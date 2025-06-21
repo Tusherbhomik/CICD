@@ -4,11 +4,19 @@ import com.prescription.entity.Appointment;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+
+@Data
+@NoArgsConstructor
 public class AppointmentScheduleDTO {
 
+    // Getters and Setters
     @NotNull(message = "Scheduled time is required")
     @Future(message = "Scheduled time must be in the future")
     private LocalDateTime scheduledTime;
@@ -21,10 +29,6 @@ public class AppointmentScheduleDTO {
 
     private String notes;
 
-    // Constructors
-    public AppointmentScheduleDTO() {
-    }
-
     public AppointmentScheduleDTO(LocalDateTime scheduledTime, Appointment.Type type, String location, String notes) {
         this.scheduledTime = scheduledTime;
         this.type = type;
@@ -32,36 +36,4 @@ public class AppointmentScheduleDTO {
         this.notes = notes;
     }
 
-    // Getters and Setters
-    public LocalDateTime getScheduledTime() {
-        return scheduledTime;
-    }
-
-    public void setScheduledTime(LocalDateTime scheduledTime) {
-        this.scheduledTime = scheduledTime;
-    }
-
-    public Appointment.Type getType() {
-        return type;
-    }
-
-    public void setType(Appointment.Type type) {
-        this.type = type;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
 }
