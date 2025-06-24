@@ -7,13 +7,6 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-env:
-  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-  AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
-  AZURE_VM_USERNAME: ${{ secrets.AZURE_VM_USERNAME }}
-  AZURE_VM_SSH_KEY: ${{ secrets.AZURE_VM_SSH_KEY }}
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -28,8 +21,8 @@ jobs:
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
-        username: ${{ env.DOCKER_HUB_USERNAME }}
-        password: ${{ env.DOCKER_HUB_TOKEN }}
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
     - name: Build and push backend image
       uses: docker/build-push-action@v5
@@ -38,8 +31,8 @@ jobs:
         dockerfile: ./Backend/Dockerfile
         push: true
         tags: |
-          ${{ env.DOCKER_HUB_USERNAME }}/prescription-backend:latest
-          ${{ env.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
+          ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-backend:latest
+          ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -50,8 +43,8 @@ jobs:
         dockerfile: ./Frontend/Dockerfile
         push: true
         tags: |
-          ${{ env.DOCKER_HUB_USERNAME }}/prescription-frontend:latest
-          ${{ env.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
+          ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-frontend:latest
+          ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -74,7 +67,7 @@ jobs:
           database:
             image: postgres:15-alpine
             container_name: prescription_db
-            environment:
+            secretsironment:
               POSTGRES_DB: prescription_system
               POSTGRES_USER: prescription_user
               POSTGRES_PASSWORD: prescription_password
@@ -94,9 +87,9 @@ jobs:
 
           # Spring Boot Backend
           backend:
-            image: ${{ env.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
+            image: ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
             container_name: prescription_backend
-            environment:
+            secretsironment:
               SPRING_PROFILES_ACTIVE: docker
               SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
               SPRING_DATASOURCE_USERNAME: prescription_user
@@ -120,7 +113,7 @@ jobs:
 
           # React Frontend
           frontend:
-            image: ${{ env.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
+            image: ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
             container_name: prescription_frontend
             ports:
               - "3000:80"
@@ -146,15 +139,15 @@ jobs:
         echo "Starting deployment..."
 
         # Create application directory if it doesn't exist
-        mkdir -p /home/${{ env.AZURE_VM_USERNAME }}/prescription-app
-        cd /home/${{ env.AZURE_VM_USERNAME }}/prescription-app
+        mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
+        cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
 
         # Login to Docker Hub
-        echo "${{ env.DOCKER_HUB_TOKEN }}" | docker login -u "${{ env.DOCKER_HUB_USERNAME }}" --password-stdin
+        echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
         # Pull latest images
-        docker pull ${{ env.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
-        docker pull ${{ env.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
+        docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
+        docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
 
         # Stop and remove existing containers
         docker-compose -f docker-compose.prod.yml down || true
@@ -194,9 +187,9 @@ jobs:
     - name: Deploy to Azure VM
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: ${{ env.AZURE_VM_HOST }}
-        username: ${{ env.AZURE_VM_USERNAME }}
-        key: ${{ env.AZURE_VM_SSH_KEY }}
+        host: ${{ secrets.AZURE_VM_HOST }}
+        username: ${{ secrets.AZURE_VM_USERNAME }}
+        key: ${{ secrets.AZURE_VM_SSH_KEY }}
         script_stop: true
         script: |
           # Install Docker and Docker Compose if not already installed
@@ -216,15 +209,15 @@ jobs:
           fi
 
           # Create application directory
-          mkdir -p /home/${{ env.AZURE_VM_USERNAME }}/prescription-app
-          cd /home/${{ env.AZURE_VM_USERNAME }}/prescription-app
+          mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
+          cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
 
           # Login to Docker Hub
-          echo "${{ env.DOCKER_HUB_TOKEN }}" | docker login -u "${{ env.DOCKER_HUB_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
           # Pull latest images
-          docker pull ${{ env.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
-          docker pull ${{ env.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
 
           # Create production docker-compose file
           cat > docker-compose.prod.yml << 'EOF'
@@ -233,7 +226,7 @@ jobs:
             database:
               image: postgres:15-alpine
               container_name: prescription_db
-              environment:
+              secretsironment:
                 POSTGRES_DB: prescription_system
                 POSTGRES_USER: prescription_user
                 POSTGRES_PASSWORD: prescription_password
@@ -251,9 +244,9 @@ jobs:
               restart: unless-stopped
 
             backend:
-              image: ${{ env.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
+              image: ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-backend:${{ github.sha }}
               container_name: prescription_backend
-              environment:
+              secretsironment:
                 SPRING_PROFILES_ACTIVE: docker
                 SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
                 SPRING_DATASOURCE_USERNAME: prescription_user
@@ -276,7 +269,7 @@ jobs:
               restart: unless-stopped
 
             frontend:
-              image: ${{ env.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
+              image: ${{ secrets.DOCKER_HUB_USERNAME }}/prescription-frontend:${{ github.sha }}
               container_name: prescription_frontend
               ports:
                 - "3000:80"
@@ -301,17 +294,17 @@ jobs:
           docker-compose -f docker-compose.prod.yml up -d
 
           echo "Deployment completed! Services should be available at:"
-          echo "Frontend: http://${{ env.AZURE_VM_HOST }}:3000"
-          echo "Backend: http://${{ env.AZURE_VM_HOST }}:8080"
+          echo "Frontend: http://${{ secrets.AZURE_VM_HOST }}:3000"
+          echo "Backend: http://${{ secrets.AZURE_VM_HOST }}:8080"
 
     - name: Verify deployment
       uses: appleboy/ssh-action@v1.0.0
       with:
-        host: ${{ env.AZURE_VM_HOST }}
-        username: ${{ env.AZURE_VM_USERNAME }}
-        key: ${{ env.AZURE_VM_SSH_KEY }}
+        host: ${{ secrets.AZURE_VM_HOST }}
+        username: ${{ secrets.AZURE_VM_USERNAME }}
+        key: ${{ secrets.AZURE_VM_SSH_KEY }}
         script: |
-          cd /home/${{ env.AZURE_VM_USERNAME }}/prescription-app
+          cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
           
           # Wait for services to be ready
           sleep 45
