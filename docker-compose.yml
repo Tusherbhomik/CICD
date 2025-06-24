@@ -67,7 +67,7 @@ jobs:
     - name: Create deployment files
       run: |
         # Create production docker-compose file
-        cat > docker-compose.prod.yml << 'EOF'
+        cat > docker-compose.prod.yml << EOF
         version: '3.8'
         services:
           # PostgreSQL Database
@@ -139,7 +139,7 @@ jobs:
         EOF
 
         # Create deployment script
-        cat > deploy.sh << 'EOF'
+        cat > deploy.sh << EOF
         #!/bin/bash
         set -e
 
@@ -175,7 +175,7 @@ jobs:
             echo "Backend is healthy!"
             break
           fi
-          echo "Waiting for backend to be ready... (attempt $i/10)"
+          echo "Waiting for backend to be ready... (attempt \$i/10)"
           sleep 10
         done
 
