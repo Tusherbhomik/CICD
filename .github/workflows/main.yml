@@ -76,7 +76,7 @@ jobs:
             restart: unless-stopped
 
           frontend:
-            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
             container_name: prescription_frontend
             ports:
               - "3000:80"
