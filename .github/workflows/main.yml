@@ -1,329 +1,218 @@
-name: CI/CD Pipeline
+name: Deploy to Azure VM
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
+env:
+  REGISTRY: docker.io
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
-  # Backend Job - Spring Boot
-  backend:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      backend-changed: ${{ steps.changes.outputs.backend }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Check for backend changes
-      uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          backend:
-            - 'Backend/**'
-            - 'docker-compose*.yml'
-
-    - name: Set up JDK 17
-      if: steps.changes.outputs.backend == 'true'
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Cache Maven dependencies
-      if: steps.changes.outputs.backend == 'true'
-      uses: actions/cache@v4
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('Backend/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-
-    - name: Create application-test.properties
-      if: steps.changes.outputs.backend == 'true'
-      run: |
-        cd Backend
-        mkdir -p src/main/resources
-        cat > src/main/resources/application-test.properties << EOF
-        spring.application.name=medscribe-backend-test
-        spring.datasource.url=jdbc:h2:mem:testdb
-        spring.datasource.driver-class-name=org.h2.Driver
-        spring.datasource.username=sa
-        spring.datasource.password=password
-        spring.jpa.hibernate.ddl-auto=create-drop
-        spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
-        spring.jpa.show-sql=false
-        app.jwt.secret=test-secret-key-for-jwt-token-generation-in-test-environment
-        app.jwt.expiration=86400000
-        server.port=8080
-        server.servlet.context-path=/api
-        logging.level.root=WARN
-        logging.level.com.medscribe=INFO
-        EOF
-
-    - name: Add H2 dependency for tests
-      if: steps.changes.outputs.backend == 'true'
-      run: |
-        cd Backend
-        # Add H2 dependency to pom.xml for testing
-        sed -i '/<\/dependencies>/i\
-        \t\t<!-- H2 Database for Testing -->\
-        \t\t<dependency>\
-        \t\t\t<groupId>com.h2database</groupId>\
-        \t\t\t<artifactId>h2</artifactId>\
-        \t\t\t<scope>test</scope>\
-        \t\t</dependency>' pom.xml
-
-    - name: Run tests
-      if: steps.changes.outputs.backend == 'true'
-      run: |
-        cd Backend
-        mvn clean test -Dspring.profiles.active=test
-      env:
-        SPRING_PROFILES_ACTIVE: test
-
-    - name: Build backend
-      if: steps.changes.outputs.backend == 'true'
-      run: |
-        cd Backend
-        mvn clean package -DskipTests
-
-    - name: Upload backend artifacts
-      if: steps.changes.outputs.backend == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: backend-jar
-        path: Backend/target/*.jar
-        retention-days: 1
-
-  # Frontend Job - Vite React
-  frontend:
-    runs-on: ubuntu-latest
-    outputs:
-      frontend-changed: ${{ steps.changes.outputs.frontend }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Check for frontend changes
-      uses: dorny/paths-filter@v2
-      id: changes
-      with:
-        filters: |
-          frontend:
-            - 'Frontend/**'
-            - 'docker-compose*.yml'
-
-    - name: Set up Node.js
-      if: steps.changes.outputs.frontend == 'true'
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: Frontend/package-lock.json
-
-    - name: Install dependencies
-      if: steps.changes.outputs.frontend == 'true'
-      run: |
-        cd Frontend
-        npm ci
-
-    - name: Type checking
-      if: steps.changes.outputs.frontend == 'true'
-      run: |
-        cd Frontend
-        npx tsc --noEmit
-      continue-on-error: true
-
-    - name: Build frontend
-      if: steps.changes.outputs.frontend == 'true'
-      run: |
-        cd Frontend
-        npm run build
-
-
-    - name: Upload build artifacts
-      if: steps.changes.outputs.frontend == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: frontend-build
-        path: Frontend/dist/
-        retention-days: 1
-
-  # Docker Build Job
-  docker-build:
-    runs-on: ubuntu-latest
-    needs: [backend, frontend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
+    - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push backend image
-      if: needs.backend.outputs.backend-changed == 'true'
+    - name: Update docker-compose.yml with Docker Hub images
       run: |
-        cd Backend
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/prescription-backend:${{ github.sha }} .
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest .
-        docker push ${{ secrets.DOCKER_USERNAME }}/prescription-backend:${{ github.sha }}
-        docker push ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest
+        # Create a temporary docker-compose file with Docker Hub image references
+        sed 's|build:|#build:|g' docker-compose.yml > docker-compose.temp.yml
+        sed -i '/dockerfile:/d' docker-compose.temp.yml
+        sed -i '/context:/d' docker-compose.temp.yml
+        sed -i 's|#build:|build:|g' docker-compose.temp.yml
+        
+        # Add image references for backend and frontend services
+        sed -i '/backend:/a\    image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest' docker-compose.temp.yml
+        sed -i '/frontend:/a\    image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest' docker-compose.temp.yml
+        
+        # Replace the original file
+        mv docker-compose.temp.yml docker-compose.yml
 
-    - name: Build and push frontend image
-      if: needs.frontend.outputs.frontend-changed == 'true'
+    - name: Build and push Docker images
       run: |
-        cd Frontend
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:${{ github.sha }} .
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest .
-        docker push ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:${{ github.sha }}
-        docker push ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest
-
-  # Deploy to Azure VM
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [backend, frontend, docker-build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.AZURE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 4.213.115.214 >> ~/.ssh/known_hosts
-
+        # Build all images defined in docker-compose
+        docker compose build
+        
+        # Push all built images to Docker Hub
+        docker compose push
 
     - name: Deploy to Azure VM
-      run: |
-        # Create deployment script
-        cat > deploy.sh << 'EOF'
-        #!/bin/bash
-        set -e
-        
-        echo "🚀 Starting deployment..."
-        
-        # Update system
-        sudo apt-get update
-        
-        # Install Docker if not present
-        if ! command -v docker &> /dev/null; then
-            echo "Installing Docker..."
-            curl -fsSL https://get.docker.com -o get-docker.sh
-            sudo sh get-docker.sh
-            sudo usermod -aG docker $USER
-        fi
-        
-        # Install Docker Compose if not present
-        if ! command -v docker-compose &> /dev/null; then
-            echo "Installing Docker Compose..."
-            sudo curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-        fi
-        
-        # Create application directory
-        mkdir -p ~/prescription-app
-        cd ~/prescription-app
-        
-        # Stop existing containers if running
-        if [ -f docker-compose.prod.yml ]; then
-            echo "Stopping existing containers..."
-            docker-compose -f docker-compose.prod.yml down || true
-        fi
-        
-        # Clean up old images
-        docker system prune -f || true
-        
-        echo "✅ Deployment preparation completed"
-        EOF
-        
-        # Copy and execute deployment script
-        scp deploy.sh azureuser@4.213.115.214:~/
-        ssh azureuser@4.213.115.214 'chmod +x ~/deploy.sh && ~/deploy.sh'
-        
-        # Copy docker-compose file
-        scp docker-compose.prod.yml azureuser@4.213.115.214:~/prescription-app/
-        
-        # Create environment file
-        ssh azureuser@4.213.115.214 << 'EOF'
-        cd ~/prescription-app
-        cat > .env << 'ENVEOF'
-        DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-        JWT_SECRET=${{ secrets.JWT_SECRET }}
-        DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-        ENVEOF
-        EOF
-        
-        # Update docker-compose to use Docker Hub images if built
-        if [[ "${{ needs.backend.outputs.backend-changed }}" == "true" || "${{ needs.frontend.outputs.frontend-changed }}" == "true" ]]; then
-          ssh azureuser@4.213.115.214 << 'EOF'
-          cd ~/prescription-app
-          # Update docker-compose to use pushed images
-          sed -i 's|build:|#build:|g' docker-compose.prod.yml
-          sed -i 's|context: ./Backend|#context: ./Backend|g' docker-compose.prod.yml
-          sed -i 's|dockerfile: Dockerfile|#dockerfile: Dockerfile|g' docker-compose.prod.yml
-          sed -i 's|context: ./Frontend|#context: ./Frontend|g' docker-compose.prod.yml
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.AZURE_VM_HOST }}
+        username: ${{ secrets.AZURE_VM_USERNAME }}
+        key: ${{ secrets.AZURE_VM_SSH_KEY }}
+        port: ${{ secrets.AZURE_VM_PORT || 22 }}
+        script: |
+          # Create application directory
+          mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-system
+          cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-system
           
-          # Add image references
-          sed -i '/container_name: prescription_backend/a\    image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest' docker-compose.prod.yml
-          sed -i '/container_name: prescription_frontend/a\    image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest' docker-compose.prod.yml
-        EOF
-        fi
-        
-        # Start the application
-        ssh azureuser@4.213.115.214 << 'EOF'
-        cd ~/prescription-app
-        echo "🚀 Starting application..."
-        docker-compose -f docker-compose.prod.yml up -d
-        
-        echo "⏳ Waiting for services to be ready..."
-        sleep 30
-        
-        echo "📊 Checking service status..."
-        docker-compose -f docker-compose.prod.yml ps
-        
-        echo "🔍 Checking service health..."
-        docker-compose -f docker-compose.prod.yml logs --tail=20
-        
-        echo "✅ Deployment completed successfully!"
-        echo "🌐 Application should be available at: http://4.213.115.214"
-        EOF
+          # Create docker-compose.yml with Docker Hub images (no build contexts)
+          cat > docker-compose.yml << 'EOF'
+          version: '3.8'
+          
+          services:
+            # PostgreSQL Database
+            database:
+              image: postgres:15-alpine
+              container_name: prescription_db
+              environment:
+                POSTGRES_DB: prescription_system
+                POSTGRES_USER: prescription_user
+                POSTGRES_PASSWORD: ${DB_PASSWORD}
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+                - ./init-scripts:/docker-entrypoint-initdb.d
+              ports:
+                - "5432:5432"
+              networks:
+                - app-network
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U prescription_user -d prescription_system"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+          
+            # Spring Boot Backend
+            backend:
+              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
+              container_name: prescription_backend
+              environment:
+                SPRING_PROFILES_ACTIVE: docker
+                SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
+                SPRING_DATASOURCE_USERNAME: prescription_user
+                SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+                SPRING_JPA_HIBERNATE_DDL_AUTO: update
+                SPRING_JPA_SHOW_SQL: false
+                SERVER_PORT: 8080
+              ports:
+                - "8080:8080"
+              depends_on:
+                database:
+                  condition: service_healthy
+              networks:
+                - app-network
+              healthcheck:
+                test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+          
+            # React Frontend
+            frontend:
+              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
+              container_name: prescription_frontend
+              ports:
+                - "3000:80"
+              depends_on:
+                - backend
+              networks:
+                - app-network
+              restart: unless-stopped
+          
+          volumes:
+            postgres_data:
+          
+          networks:
+            app-network:
+              driver: bridge
+          EOF
+          
+          # Create environment file
+          cat > .env << 'EOF'
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          EOF
+          
+          # Load environment variables
+          set -a
+          source .env
+          set +a
+          
+          # Pull latest images using docker compose
+          echo "Pulling latest images..."
+          docker compose pull
+          
+          # Stop existing containers
+          echo "Stopping existing containers..."
+          docker compose down
+          
+          # Start new containers
+          echo "Starting new containers..."
+          docker compose up -d
+          
+          # Wait for services
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Check status
+          echo "Container status:"
+          docker compose ps
+          
+          # Health checks
+          echo "Running health checks..."
+          
+          # Check backend health
+          if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
+            echo "✅ Backend is healthy"
+          else
+            echo "❌ Backend health check failed"
+            docker compose logs backend
+          fi
+          
+          # Check frontend
+          if curl -f -s http://localhost:3000/ > /dev/null 2>&1; then
+            echo "✅ Frontend is healthy"
+          else
+            echo "❌ Frontend health check failed"  
+            docker compose logs frontend
+          fi
+          
+          # Check database
+          if docker compose exec -T database pg_isready -U prescription_user -d prescription_system > /dev/null 2>&1; then
+            echo "✅ Database is healthy"
+          else
+            echo "❌ Database health check failed"
+            docker compose logs database
+          fi
+          
+          # Clean up unused images
+          echo "Cleaning up unused images..."
+          docker image prune -f
+          
+          echo "🚀 Deployment completed!"
+          echo "Frontend: http://$(curl -s ifconfig.me):3000"
+          echo "Backend: http://$(curl -s ifconfig.me):8080"
 
-
-    - name: Verify deployment
+  notify:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Notify deployment result
       run: |
-        echo "🔍 Verifying deployment..."
-        sleep 10
-        
-        # Check if the application is responding
-        if curl -f http://4.213.115.214 > /dev/null 2>&1; then
-          echo "✅ Application is responding successfully!"
+        if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
+          echo "✅ Deployment completed successfully!"
+          echo "🔗 Your application is now live!"
         else
-          echo "❌ Application health check failed"
+          echo "❌ Deployment failed!"
+          echo "Please check the logs above for details."
           exit 1
         fi
-
-    - name: Cleanup
-      if: always()
-      run: |
-        rm -f ~/.ssh/id_rsa
-        rm -f deploy.sh
