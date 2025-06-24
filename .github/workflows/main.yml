@@ -47,7 +47,7 @@ jobs:
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           
           # Create docker-compose.yml
-          cat > docker-compose.yml << 'EOF'
+          cat > docker-compose.yml << 'YAML_EOF'
           version: '3.8'
           services:
             database:
@@ -101,7 +101,7 @@ jobs:
           networks:
             app-network:
               driver: bridge
-          EOF
+          YAML_EOF
           
           # Pull latest images and restart
           docker-compose pull
