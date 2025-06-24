@@ -2,225 +2,52 @@ name: Deploy to Azure VM
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build and push backend image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./Backend
-        dockerfile: ./Backend/Dockerfile
-        push: true
-        tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Build and push frontend image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./Frontend
-        dockerfile: ./Frontend/Dockerfile
-        push: true
-        tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:${{ github.sha }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
   deploy:
-    needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     
     steps:
+    # 1. Get the code
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Create deployment files
+    # 2. Login to Docker Hub
+    - name: Login to Docker Hub
       run: |
-        # Create production docker-compose file
-        cat > docker-compose.prod.yml << EOF
-        version: '3.8'
-        services:
-          # PostgreSQL Database
-          database:
-            image: postgres:15-alpine
-            container_name: prescription_db
-            environment:
-              POSTGRES_DB: prescription_system
-              POSTGRES_USER: prescription_user
-              POSTGRES_PASSWORD: prescription_password
-            volumes:
-              - postgres_data:/var/lib/postgresql/data
-              - ./init-scripts:/docker-entrypoint-initdb.d
-            ports:
-              - "5432:5432"
-            networks:
-              - app-network
-            healthcheck:
-              test: ["CMD-SHELL", "pg_isready -U prescription_user -d prescription_system"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-            restart: unless-stopped
+        echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-          # Spring Boot Backend
-          backend:
-            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
-            container_name: prescription_backend
-            environment:
-              SPRING_PROFILES_ACTIVE: docker
-              SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
-              SPRING_DATASOURCE_USERNAME: prescription_user
-              SPRING_DATASOURCE_PASSWORD: prescription_password
-              SPRING_JPA_HIBERNATE_DDL_AUTO: update
-              SPRING_JPA_SHOW_SQL: true
-              SERVER_PORT: 8080
-            ports:
-              - "8080:8080"
-            depends_on:
-              database:
-                condition: service_healthy
-            networks:
-              - app-network
-            healthcheck:
-              test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
-            restart: unless-stopped
+    # 3. Build and push backend
+    - name: Build and push backend
+      run: |
+        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest ./Backend
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
 
-          # React Frontend
-          frontend:
-            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:${{ github.sha }}
-            container_name: prescription_frontend
-            ports:
-              - "3000:80"
-            depends_on:
-              - backend
-            networks:
-              - app-network
-            restart: unless-stopped
+    # 4. Build and push frontend  
+    - name: Build and push frontend
+      run: |
+        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest ./Frontend
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
 
-        volumes:
-          postgres_data:
-
-        networks:
-          app-network:
-            driver: bridge
-        EOF
-
-        # Create deployment script
-        cat > deploy.sh << EOF
-        #!/bin/bash
-        set -e
-
-        echo "Starting deployment..."
-
-        # Create application directory if it doesn't exist
-        mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
-        cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
-
-        # Login to Docker Hub
-        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-        # Pull latest images
-        docker pull ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
-        docker pull ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:${{ github.sha }}
-
-        # Stop and remove existing containers
-        docker-compose -f docker-compose.prod.yml down || true
-
-        # Start the application
-        docker-compose -f docker-compose.prod.yml up -d
-
-        # Wait for services to be healthy
-        echo "Waiting for services to start..."
-        sleep 30
-
-        # Check if services are running
-        docker-compose -f docker-compose.prod.yml ps
-
-        # Test backend health
-        for i in {1..10}; do
-          if curl -f http://localhost:8080/actuator/health; then
-            echo "Backend is healthy!"
-            break
-          fi
-          echo "Waiting for backend to be ready... (attempt \$i/10)"
-          sleep 10
-        done
-
-        # Test frontend
-        if curl -f http://localhost:3000; then
-          echo "Frontend is accessible!"
-        else
-          echo "Warning: Frontend may not be ready yet"
-        fi
-
-        echo "Deployment completed successfully!"
-        EOF
-
-        chmod +x deploy.sh
-
-    - name: Deploy to Azure VM
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.AZURE_VM_HOST }}
-        username: ${{ secrets.AZURE_VM_USERNAME }}
-        key: ${{ secrets.AZURE_VM_SSH_KEY }}
-        script_stop: true
-        script: |
-          # Install Docker and Docker Compose if not already installed
-          if ! command -v docker &> /dev/null; then
-            echo "Installing Docker..."
-            curl -fsSL https://get.docker.com -o get-docker.sh
-            sudo sh get-docker.sh
-            sudo usermod -aG docker $USER
-            sudo systemctl start docker
-            sudo systemctl enable docker
-          fi
-
-          if ! command -v docker-compose &> /dev/null; then
-            echo "Installing Docker Compose..."
-            sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-          fi
-
-          # Create application directory
-          mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
-          cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
-
+    # 5. Deploy to VM
+    - name: Deploy to VM
+      run: |
+        # Create SSH key
+        echo "${{ secrets.AZURE_VM_SSH_KEY }}" > key.pem
+        chmod 600 key.pem
+        
+        # SSH and deploy
+        ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+          # Create app directory
+          mkdir -p ~/prescription-app
+          cd ~/prescription-app
+          
           # Login to Docker Hub
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-          # Pull latest images
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:${{ github.sha }}
-
-          # Create production docker-compose file
-          cat > docker-compose.prod.yml << 'EOF'
+          
+          # Create docker-compose.yml
+          cat > docker-compose.yml << 'COMPOSE'
           version: '3.8'
           services:
             database:
@@ -236,15 +63,10 @@ jobs:
                 - "5432:5432"
               networks:
                 - app-network
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U prescription_user -d prescription_system"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
               restart: unless-stopped
 
             backend:
-              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
+              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
               container_name: prescription_backend
               environment:
                 SPRING_PROFILES_ACTIVE: docker
@@ -252,24 +74,18 @@ jobs:
                 SPRING_DATASOURCE_USERNAME: prescription_user
                 SPRING_DATASOURCE_PASSWORD: prescription_password
                 SPRING_JPA_HIBERNATE_DDL_AUTO: update
-                SPRING_JPA_SHOW_SQL: true
+                SPRING_JPA_SHOW_SQL: false
                 SERVER_PORT: 8080
               ports:
                 - "8080:8080"
               depends_on:
-                database:
-                  condition: service_healthy
+                - database
               networks:
                 - app-network
-              healthcheck:
-                test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
               restart: unless-stopped
 
             frontend:
-              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:${{ github.sha }}
+              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
               container_name: prescription_frontend
               ports:
                 - "3000:80"
@@ -285,37 +101,21 @@ jobs:
           networks:
             app-network:
               driver: bridge
-          EOF
-
-          # Stop existing containers
-          docker-compose -f docker-compose.prod.yml down || true
-
-          # Start the application
-          docker-compose -f docker-compose.prod.yml up -d
-
-          echo "Deployment completed! Services should be available at:"
+          COMPOSE
+          
+          # Pull latest images and restart
+          docker-compose pull
+          docker-compose down
+          docker-compose up -d
+          
+          # Quick status check
+          sleep 15
+          docker-compose ps
+          
+          echo "🚀 Deployment completed!"
           echo "Frontend: http://${{ secrets.AZURE_VM_HOST }}:3000"
           echo "Backend: http://${{ secrets.AZURE_VM_HOST }}:8080"
-
-    - name: Verify deployment
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.AZURE_VM_HOST }}
-        username: ${{ secrets.AZURE_VM_USERNAME }}
-        key: ${{ secrets.AZURE_VM_SSH_KEY }}
-        script: |
-          cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-app
-          
-          # Wait for services to be ready
-          sleep 45
-          
-          # Check container status
-          echo "=== Container Status ==="
-          docker-compose -f docker-compose.prod.yml ps
-          
-          # Check logs if needed
-          echo "=== Recent Backend Logs ==="
-          docker-compose -f docker-compose.prod.yml logs --tail=20 backend
-          
-          echo "=== Recent Frontend Logs ==="
-          docker-compose -f docker-compose.prod.yml logs --tail=20 frontend
+        EOF
+        
+        # Clean up
+        rm -f key.pem
