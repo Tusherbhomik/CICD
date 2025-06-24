@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
 
 jobs:
   build-and-deploy:
@@ -24,8 +24,8 @@ jobs:
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Update docker-compose.yml with Docker Hub images
       run: |
@@ -36,8 +36,8 @@ jobs:
         sed -i 's|#build:|build:|g' docker-compose.temp.yml
         
         # Add image references for backend and frontend services
-        sed -i '/backend:/a\    image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest' docker-compose.temp.yml
-        sed -i '/frontend:/a\    image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest' docker-compose.temp.yml
+        sed -i '/backend:/a\    image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest' docker-compose.temp.yml
+        sed -i '/frontend:/a\    image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest' docker-compose.temp.yml
         
         # Replace the original file
         mv docker-compose.temp.yml docker-compose.yml
@@ -51,16 +51,16 @@ jobs:
         docker compose push
 
     - name: Deploy to Azure VM
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.AZURE_VM_HOST }}
-        username: ${{ secrets.AZURE_VM_USERNAME }}
-        key: ${{ secrets.AZURE_VM_SSH_KEY }}
-        port: ${{ secrets.AZURE_VM_PORT || 22 }}
-        script: |
+      run: |
+        # Create SSH key file
+        echo "${{ secrets.AZURE_SSH_PRIVATE_KEY }}" > HealthSync_key.pem
+        chmod 600 HealthSync_key.pem
+        
+        # Deploy using SSH
+        ssh -i HealthSync_key.pem -o StrictHostKeyChecking=no azureuser@74.225.140.65 << 'ENDSSH'
           # Create application directory
-          mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-system
-          cd /home/${{ secrets.AZURE_VM_USERNAME }}/prescription-system
+          mkdir -p /home/azureuser/prescription-system
+          cd /home/azureuser/prescription-system
           
           # Create docker-compose.yml with Docker Hub images (no build contexts)
           cat > docker-compose.yml << 'EOF'
@@ -91,7 +91,7 @@ jobs:
           
             # Spring Boot Backend
             backend:
-              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
+              image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest
               container_name: prescription_backend
               environment:
                 SPRING_PROFILES_ACTIVE: docker
@@ -117,7 +117,7 @@ jobs:
           
             # React Frontend
             frontend:
-              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
+              image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest
               container_name: prescription_frontend
               ports:
                 - "3000:80"
@@ -138,7 +138,7 @@ jobs:
           # Create environment file
           cat > .env << 'EOF'
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_USERNAME=${{ secrets.DOCKER_USERNAME }}
           EOF
           
           # Load environment variables
@@ -198,8 +198,12 @@ jobs:
           docker image prune -f
           
           echo "🚀 Deployment completed!"
-          echo "Frontend: http://$(curl -s ifconfig.me):3000"
-          echo "Backend: http://$(curl -s ifconfig.me):8080"
+          echo "Frontend: http://74.225.140.65:3000"
+          echo "Backend: http://74.225.140.65:8080"
+        ENDSSH
+        
+        # Clean up SSH key file
+        rm -f HealthSync_key.pem
 
   notify:
     needs: build-and-deploy
