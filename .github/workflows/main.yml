@@ -23,13 +23,11 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Build and push Docker images
       - name: Build and push Docker images
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker compose build
           docker compose push
@@ -47,9 +45,6 @@ jobs:
 
       # Deploy to Azure VM via SSH
       - name: Deploy to Azure VM
-        env:
-          AZURE_VM_USERNAME: ${{ secrets.AZURE_VM_USERNAME }}
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
         run: |
           ssh -o StrictHostKeyChecking=no -i HealthSync_key.pem ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
             # Create project directory if it doesn't exist
@@ -62,6 +57,9 @@ jobs:
 
             # Pull the docker-compose.yml from the repository
             curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+
+            # Ensure init-scripts directory exists (for database initialization)
+            mkdir -p init-scripts
 
             # Log in to Docker Hub
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
