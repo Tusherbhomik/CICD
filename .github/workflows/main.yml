@@ -1,209 +1,115 @@
-name: Deploy to Azure VM
+name: Build and Deploy to Azure VM
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-
-env:
-  REGISTRY: docker.io
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      # Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push Docker images
-      run: |
-        # Build all images defined in docker-compose
-        # This will use the docker-compose.yml that includes 'build' contexts
-        docker compose build
-        
-        # Push all built images to Docker Hub
-        docker compose push
+      # Build and push Docker images
+      - name: Build and push Docker images
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          docker compose build
+          docker compose push
 
-    - name: Deploy to Azure VM
-      run: |
-        # Create SSH key file
-        echo "${{ secrets.AZURE_SSH_PRIVATE_KEY }}" > HealthSync_key.pem
-        chmod 600 HealthSync_key.pem
-        
-        # Deploy using SSH
-        ssh -i HealthSync_key.pem -o StrictHostKeyChecking=no azureuser@74.225.140.65 << 'ENDSSH'
-          # Create application directory
-          mkdir -p /home/azureuser/prescription-system
-          cd /home/azureuser/prescription-system
-          
-          # Create docker-compose.yml with Docker Hub images (no build contexts here)
-          # This ensures we pull pre-built images on the VM
-          cat > docker-compose.yml << 'EOF'
-          version: '3.8'
-          
-          services:
-            # PostgreSQL Database
-            database:
-              image: postgres:15-alpine
-              container_name: prescription_db
-              environment:
-                POSTGRES_DB: prescription_system
-                POSTGRES_USER: prescription_user
-                POSTGRES_PASSWORD: ${DB_PASSWORD}
-              volumes:
-                - postgres_data:/var/lib/postgresql/data
-                - ./init-scripts:/docker-entrypoint-initdb.d
-              ports:
-                - "5432:5432"
-              networks:
-                - app-network
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U prescription_user -d prescription_system"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-              restart: unless-stopped
-          
-            # Spring Boot Backend
-            backend:
-              image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest
-              container_name: prescription_backend
-              environment:
-                SPRING_PROFILES_ACTIVE: docker
-                SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
-                SPRING_DATASOURCE_USERNAME: prescription_user
-                SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-                SPRING_JPA_HIBERNATE_DDL_AUTO: update
-                SPRING_JPA_SHOW_SQL: false
-                SERVER_PORT: 8080
-              ports:
-                - "8080:8080"
-              depends_on:
-                database:
-                  condition: service_healthy
-              networks:
-                - app-network
-              healthcheck:
-                test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-              restart: unless-stopped
-          
-            # React Frontend
-            frontend:
-              image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest
-              container_name: prescription_frontend
-              ports:
-                - "3000:80"
-              depends_on:
-                - backend
-              networks:
-                - app-network
-              restart: unless-stopped
-          
-          volumes:
-            postgres_data:
-          
-          networks:
-            app-network:
-              driver: bridge
-          EOF
-          
-          # Create environment file
-          cat > .env << 'EOF'
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DOCKERHUB_USERNAME=${{ secrets.DOCKER_USERNAME }}
-          EOF
-          
-          # Load environment variables
-          set -a
-          source .env
-          set +a
-          
-          # Pull latest images using docker compose
-          echo "Pulling latest images..."
-          docker compose pull
-          
-          # Stop existing containers
-          echo "Stopping existing containers..."
-          docker compose down
-          
-          # Start new containers
-          echo "Starting new containers..."
-          docker compose up -d
-          
-          # Wait for services
-          echo "Waiting for services to start..."
-          sleep 30
-          
-          # Check status
-          echo "Container status:"
-          docker compose ps
-          
-          # Health checks
-          echo "Running health checks..."
-          
-          # Check backend health
-          if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
-            echo "✅ Backend is healthy"
-          else
-            echo "❌ Backend health check failed"
-            docker compose logs backend
-          fi
-          
-          # Check frontend
-          if curl -f -s http://localhost:3000/ > /dev/null 2>&1; then
-            echo "✅ Frontend is healthy"
-          else
-            echo "❌ Frontend health check failed"  
-            docker compose logs frontend
-          fi
-          
-          # Check database
-          if docker compose exec -T database pg_isready -U prescription_user -d prescription_system > /dev/null 2>&1; then
-            echo "✅ Database is healthy"
-          else
-            echo "❌ Database health check failed"
-            docker compose logs database
-          fi
-          
-          # Clean up unused images
-          echo "Cleaning up unused images..."
-          docker image prune -f
-          
-          echo "🚀 Deployment completed!"
-          echo "Frontend: http://74.225.140.65:3000"
-          echo "Backend: http://74.225.140.65:8080"
-        ENDSSH
-        
-        # Clean up SSH key file
-        rm -f HealthSync_key.pem
-
-  notify:
-    needs: build-and-deploy
+  deploy-to-azure:
+    needs: build-and-push
     runs-on: ubuntu-latest
-    if: always()
+
     steps:
-    - name: Notify deployment result
-      run: |
-        if [[ "${{ needs.build-and-deploy.result }}" == "success" ]]; then
-          echo "✅ Deployment completed successfully!"
-          echo "🔗 Your application is now live!"
-        else
-          echo "❌ Deployment failed!"
-          echo "Please check the logs above for details."
-          exit 1
-        fi
+      # Write SSH key to a file
+      - name: Write SSH key
+        run: |
+          echo "${{ secrets.AZURE_VM_SSH_KEY }}" > HealthSync_key.pem
+          chmod 600 HealthSync_key.pem
+
+      # Deploy to Azure VM via SSH
+      - name: Deploy to Azure VM
+        env:
+          AZURE_VM_USERNAME: ${{ secrets.AZURE_VM_USERNAME }}
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+        run: |
+          ssh -o StrictHostKeyChecking=no -i HealthSync_key.pem ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+            # Create project directory if it doesn't exist
+            mkdir -p ~/prescription-system
+            cd ~/prescription-system
+
+            # Create .env file
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
+
+            # Pull the docker-compose.yml from the repository
+            curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+
+            # Log in to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            # Pull latest images
+            docker compose pull
+
+            # Stop existing containers
+            docker compose down
+
+            # Start new containers
+            docker compose up -d
+
+            # Wait for services to start
+            sleep 30
+
+            # Check container status
+            docker compose ps
+
+            # Health checks
+            if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              echo "✅ Backend is healthy"
+            else
+              echo "❌ Backend health check failed"
+              docker compose logs backend
+              exit 1
+            fi
+
+            if curl -f -s http://localhost:3000/ > /dev/null 2>&1; then
+              echo "✅ Frontend is healthy"
+            else
+              echo "❌ Frontend health check failed"
+              docker compose logs frontend
+              exit 1
+            fi
+
+            if docker compose exec -T database pg_isready -U prescription_user -d prescription_system > /dev/null 2>&1; then
+              echo "✅ Database is healthy"
+            else
+              echo "❌ Database health check failed"
+              docker compose logs database
+              exit 1
+            fi
+
+            # Clean up unused images
+            docker image prune -f
+
+            echo "🚀 Deployment completed!"
+            echo "Frontend: http://${{ secrets.AZURE_VM_HOST }}:3000"
+            echo "Backend: http://${{ secrets.AZURE_VM_HOST }}:8080"
+          EOF
