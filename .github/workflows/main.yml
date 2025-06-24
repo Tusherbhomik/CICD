@@ -210,7 +210,7 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets.AZURE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 4.213.115.214 >> ~/.ssh/known_hosts
+        ssh-keyscan -H 74.225.140.65 >> ~/.ssh/known_hosts
 
 
     - name: Deploy to Azure VM
