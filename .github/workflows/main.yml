@@ -252,6 +252,11 @@ jobs:
         
         # Clean up old images
         docker system prune -f || true
+
+        # Pull latest images
+        echo "Pulling latest images..."
+        docker pull $DOCKER_USERNAME/prescription-backend:latest || true
+        docker pull $DOCKER_USERNAME/prescription-frontend:latest || true
         
         echo "✅ Deployment preparation completed"
         EOF
