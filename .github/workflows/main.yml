@@ -27,33 +27,10 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Update docker-compose.yml with Docker Hub images
-      run: |
-        # Read the original docker-compose.yml and modify it
-        awk '
-          /^services:/ { print; in_services=1; next }
-          in_services && /^(  [a-zA-Z0-9_-]+:)$/ { 
-            current_service = $1; 
-            print; 
-            # Check if this service needs an image line
-            if (current_service == "backend:") { 
-              print "    image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest"; 
-            } else if (current_service == "frontend:") { 
-              print "    image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest"; 
-            } 
-            next 
-          }
-          # Skip build related lines if we are inside a service definition
-          in_services && (/\s*build:/ || /\s*context:/ || /\s*dockerfile:/) { next }
-          { print }
-        ' docker-compose.yml > docker-compose.temp.yml
-
-        # Replace the original file
-        mv docker-compose.temp.yml docker-compose.yml
-
     - name: Build and push Docker images
       run: |
         # Build all images defined in docker-compose
+        # This will use the docker-compose.yml that includes 'build' contexts
         docker compose build
         
         # Push all built images to Docker Hub
@@ -71,7 +48,8 @@ jobs:
           mkdir -p /home/azureuser/prescription-system
           cd /home/azureuser/prescription-system
           
-          # Create docker-compose.yml with Docker Hub images (no build contexts)
+          # Create docker-compose.yml with Docker Hub images (no build contexts here)
+          # This ensures we pull pre-built images on the VM
           cat > docker-compose.yml << 'EOF'
           version: '3.8'
           
