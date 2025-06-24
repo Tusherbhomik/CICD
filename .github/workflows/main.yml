@@ -19,6 +19,46 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+    
+    - name: Create application-test.properties
+      run: |
+        cd Backend
+        mkdir -p src/main/resources
+        cat > src/main/resources/application-test.properties << EOF
+        spring.application.name=medscribe-backend-test
+        spring.datasource.url=jdbc:h2:mem:testdb
+        spring.datasource.driver-class-name=org.h2.Driver
+        spring.datasource.username=sa
+        spring.datasource.password=password
+        spring.jpa.hibernate.ddl-auto=create-drop
+        spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+        spring.jpa.show-sql=false
+        app.jwt.secret=test-secret-key-for-jwt-token-generation-in-test-environment
+        app.jwt.expiration=86400000
+        server.port=8080
+        server.servlet.context-path=/api
+        logging.level.root=WARN
+        logging.level.com.medscribe=INFO
+        EOF
+
+    - name: Add H2 dependency for tests
+      run: |
+        cd Backend
+        # Add H2 dependency to pom.xml for testing
+        sed -i '/<\/dependencies>/i\
+        \t\t<!-- H2 Database for Testing -->\
+        \t\t<dependency>\
+        \t\t\t<groupId>com.h2database</groupId>\
+        \t\t\t<artifactId>h2</artifactId>\
+        \t\t\t<scope>test</scope>\
+        \t\t</dependency>' pom.xml
+
+    - name: Run tests
+      run: |
+        cd Backend
+        mvn clean test -Dspring.profiles.active=test
+      env:
+        SPRING_PROFILES_ACTIVE: test
 
     # 3. Build backend JAR
     - name: Build backend JAR
