@@ -236,7 +236,8 @@ const NewPrescription = () => {
     const fetchPatients = async () => {
       setIsLoadingPatients(true);
       try {
-        const response = await fetch("http://localhost:8080/api/patients", {
+        // const response = await fetch("http://localhost:8080/api/patients", {
+        const response = await fetch('http://localhost:8080/patients', {
           method: "GET",
           credentials: "include",
         });
