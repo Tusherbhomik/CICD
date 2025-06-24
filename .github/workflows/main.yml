@@ -37,71 +37,79 @@ jobs:
         echo "${{ secrets.AZURE_VM_SSH_KEY }}" > key.pem
         chmod 600 key.pem
         
+        # Create docker-compose content
+        cat > docker-compose.yml << 'COMPOSE_EOF'
+        version: '3.8'
+        services:
+          database:
+            image: postgres:15-alpine
+            container_name: prescription_db
+            environment:
+              POSTGRES_DB: prescription_system
+              POSTGRES_USER: prescription_user
+              POSTGRES_PASSWORD: prescription_password
+            volumes:
+              - postgres_data:/var/lib/postgresql/data
+            ports:
+              - "5432:5432"
+            networks:
+              - app-network
+            restart: unless-stopped
+
+          backend:
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
+            container_name: prescription_backend
+            environment:
+              SPRING_PROFILES_ACTIVE: docker
+              SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
+              SPRING_DATASOURCE_USERNAME: prescription_user
+              SPRING_DATASOURCE_PASSWORD: prescription_password
+              SPRING_JPA_HIBERNATE_DDL_AUTO: update
+              SPRING_JPA_SHOW_SQL: false
+              SERVER_PORT: 8080
+            ports:
+              - "8080:8080"
+            depends_on:
+              - database
+            networks:
+              - app-network
+            restart: unless-stopped
+
+          frontend:
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
+            container_name: prescription_frontend
+            ports:
+              - "3000:80"
+            depends_on:
+              - backend
+            networks:
+              - app-network
+            restart: unless-stopped
+
+        volumes:
+          postgres_data:
+
+        networks:
+          app-network:
+            driver: bridge
+        COMPOSE_EOF
+        
         # SSH and deploy
-        ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'EOF'
+        ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'SSH_EOF'
           # Create app directory
           mkdir -p ~/prescription-app
           cd ~/prescription-app
           
-          # Login to Docker Hub
+          # Login to Docker Hub on remote server
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          
-          # Create docker-compose.yml
-          cat > docker-compose.yml << 'YAML_EOF'
-          version: '3.8'
-          services:
-            database:
-              image: postgres:15-alpine
-              container_name: prescription_db
-              environment:
-                POSTGRES_DB: prescription_system
-                POSTGRES_USER: prescription_user
-                POSTGRES_PASSWORD: prescription_password
-              volumes:
-                - postgres_data:/var/lib/postgresql/data
-              ports:
-                - "5432:5432"
-              networks:
-                - app-network
-              restart: unless-stopped
-
-            backend:
-              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
-              container_name: prescription_backend
-              environment:
-                SPRING_PROFILES_ACTIVE: docker
-                SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
-                SPRING_DATASOURCE_USERNAME: prescription_user
-                SPRING_DATASOURCE_PASSWORD: prescription_password
-                SPRING_JPA_HIBERNATE_DDL_AUTO: update
-                SPRING_JPA_SHOW_SQL: false
-                SERVER_PORT: 8080
-              ports:
-                - "8080:8080"
-              depends_on:
-                - database
-              networks:
-                - app-network
-              restart: unless-stopped
-
-            frontend:
-              image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
-              container_name: prescription_frontend
-              ports:
-                - "3000:80"
-              depends_on:
-                - backend
-              networks:
-                - app-network
-              restart: unless-stopped
-
-          volumes:
-            postgres_data:
-
-          networks:
-            app-network:
-              driver: bridge
-YAML_EOF
+        SSH_EOF
+        
+        # Copy docker-compose file to remote server
+        scp -i key.pem -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/prescription-app/
+        
+        # Deploy on remote server
+        ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'DEPLOY_EOF'
+          cd ~/prescription-app
           
           # Pull latest images and restart
           docker-compose pull
@@ -115,7 +123,7 @@ YAML_EOF
           echo "🚀 Deployment completed!"
           echo "Frontend: http://${{ secrets.AZURE_VM_HOST }}:3000"
           echo "Backend: http://${{ secrets.AZURE_VM_HOST }}:8080"
-        EOF
+        DEPLOY_EOF
         
         # Clean up
-        rm -f key.pem
+        rm -f key.pem docker-compose.yml
