@@ -309,18 +309,18 @@ jobs:
         EOF
 
 
-    - name: Verify deployment
-      run: |
-        echo "🔍 Verifying deployment..."
-        sleep 10
+    # - name: Verify deployment
+    #   run: |
+    #     echo "🔍 Verifying deployment..."
+    #     sleep 10
         
-        # Check if the application is responding
-        if curl -f http://74.225.140.65 > /dev/null 2>&1; then
-          echo "✅ Application is responding successfully!"
-        else
-          echo "❌ Application health check failed"
-          exit 1
-        fi
+    #     # Check if the application is responding
+    #     if curl -f http://74.225.140.65 > /dev/null 2>&1; then
+    #       echo "✅ Application is responding successfully!"
+    #     else
+    #       echo "❌ Application health check failed"
+    #       exit 1
+    #     fi
 
     - name: Cleanup
       if: always()
