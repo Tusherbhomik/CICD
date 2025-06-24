@@ -29,16 +29,25 @@ jobs:
 
     - name: Update docker-compose.yml with Docker Hub images
       run: |
-        # Create a temporary docker-compose file with Docker Hub image references
-        sed 's|build:|#build:|g' docker-compose.yml > docker-compose.temp.yml
-        sed -i '/dockerfile:/d' docker-compose.temp.yml
-        sed -i '/context:/d' docker-compose.temp.yml
-        sed -i 's|#build:|build:|g' docker-compose.temp.yml
-        
-        # Add image references for backend and frontend services
-        sed -i '/backend:/a\    image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest' docker-compose.temp.yml
-        sed -i '/frontend:/a\    image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest' docker-compose.temp.yml
-        
+        # Read the original docker-compose.yml and modify it
+        awk '
+          /^services:/ { print; in_services=1; next }
+          in_services && /^(  [a-zA-Z0-9_-]+:)$/ { 
+            current_service = $1; 
+            print; 
+            # Check if this service needs an image line
+            if (current_service == "backend:") { 
+              print "    image: ${{ secrets.DOCKER_USERNAME }}/prescription-backend:latest"; 
+            } else if (current_service == "frontend:") { 
+              print "    image: ${{ secrets.DOCKER_USERNAME }}/prescription-frontend:latest"; 
+            } 
+            next 
+          }
+          # Skip build related lines if we are inside a service definition
+          in_services && (/\s*build:/ || /\s*context:/ || /\s*dockerfile:/) { next }
+          { print }
+        ' docker-compose.yml > docker-compose.temp.yml
+
         # Replace the original file
         mv docker-compose.temp.yml docker-compose.yml
 
