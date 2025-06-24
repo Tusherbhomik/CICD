@@ -5,6 +5,7 @@ import PageLayout from '@/components/layout/PageLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge"; // For status
+import { API_BASE_URL } from '@/url';
 
 // Corresponds to PrescriptionResponse.MedicineResponse in the backend
 interface MedicineInfo {
@@ -78,7 +79,7 @@ const MyPrescriptions = () => {
 
       try {
         // Adjust page and size as needed, or remove if not using pagination on this view initially
-        const response = await fetch(`http://localhost:8080/api/prescriptions/patient?page=${currentPage}&size=10`, {
+        const response = await fetch(`${API_BASE_URL}/api/prescriptions/patient?page=${currentPage}&size=10`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

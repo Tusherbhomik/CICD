@@ -11,3 +11,12 @@ public class HealthSyncApplication {
 	}
 
 }
+
+
+//docker run -d `
+//		--name prescription-postgres `
+//		-e POSTGRES_DB=prescription_system `
+//		-e POSTGRES_USER=prescription_user `
+//		-e POSTGRES_PASSWORD=prescription_password `
+//		-p 5432:5432 `
+//postgres:latest

@@ -1,4 +1,5 @@
 import MainLayout from "@/components/layout/MainLayout";
+import { API_BASE_URL } from '@/url';
 import {
   Award,
   Calendar,
@@ -65,7 +66,7 @@ const BookAppointment = ({ patientId = 1 }) => {
     const fetchDoctors = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:8080/api/doctors", {
+        const response = await fetch(`${ API_BASE_URL }/api/doctors`, {
           method: "GET",
           credentials: "include",
         });
@@ -205,7 +206,7 @@ const BookAppointment = ({ patientId = 1 }) => {
       };
 
       const response = await fetch(
-        "http://localhost:8080/api/appointments/request",
+        `${{ API_BASE_URL }}/api/appointments/request`,
         {
           method: "POST",
           headers: {

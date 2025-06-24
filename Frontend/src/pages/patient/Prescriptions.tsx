@@ -1,4 +1,5 @@
 import MainLayout from "@/components/layout/MainLayout";
+import { API_BASE_URL } from '@/url';
 import {
   AlertCircle,
   Calendar,
@@ -22,7 +23,7 @@ const Prescriptions = () => {
     const fetchPrescriptions = async () => {
       try {
         const response = await fetch(
-          "http://localhost:8080/api/prescriptions/patient",
+          `${API_BASE_URL}/api/prescriptions/patient`,
           {
             method: "GET",
             headers: {

@@ -4,6 +4,7 @@ import { DatePicker } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { API_BASE_URL } from '@/url';
 import {
   Select,
   SelectContent,
@@ -236,8 +237,7 @@ const NewPrescription = () => {
     const fetchPatients = async () => {
       setIsLoadingPatients(true);
       try {
-        // const response = await fetch("http://localhost:8080/api/patients", {
-        const response = await fetch('http://localhost:8080/patients', {
+        const response = await fetch(`${API_BASE_URL}/patients`, {
           method: "GET",
           credentials: "include",
         });
@@ -265,7 +265,7 @@ const NewPrescription = () => {
       setIsLoadingMedicines(true);
       try {
         const response = await fetch(
-          "http://localhost:8080/api/medicines/search",
+          `${API_BASE_URL}/api/medicines/search`,
           {
             method: "GET",
             credentials: "include",
@@ -624,7 +624,7 @@ const NewPrescription = () => {
 
       console.log("Sending prescription data:", requestData);
 
-      const response = await fetch("http://localhost:8080/api/prescriptions", {
+      const response = await fetch(`${API_BASE_URL}/api/prescriptions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
