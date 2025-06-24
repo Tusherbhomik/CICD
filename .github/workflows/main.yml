@@ -257,14 +257,14 @@ jobs:
         EOF
         
         # Copy and execute deployment script
-        scp deploy.sh azureuser@4.213.115.214:~/
-        ssh azureuser@4.213.115.214 'chmod +x ~/deploy.sh && ~/deploy.sh'
+        scp deploy.sh azureuser@74.225.140.65:~/
+        ssh azureuser@74.225.140.65 'chmod +x ~/deploy.sh && ~/deploy.sh'
         
         # Copy docker-compose file
-        scp docker-compose.prod.yml azureuser@4.213.115.214:~/prescription-app/
+        scp docker-compose.prod.yml azureuser@74.225.140.65:~/prescription-app/
         
         # Create environment file
-        ssh azureuser@4.213.115.214 << 'EOF'
+        ssh azureuser@74.225.140.65 << 'EOF'
         cd ~/prescription-app
         cat > .env << 'ENVEOF'
         DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -275,7 +275,7 @@ jobs:
         
         # Update docker-compose to use Docker Hub images if built
         if [[ "${{ needs.backend.outputs.backend-changed }}" == "true" || "${{ needs.frontend.outputs.frontend-changed }}" == "true" ]]; then
-          ssh azureuser@4.213.115.214 << 'EOF'
+          ssh azureuser@74.225.140.65 << 'EOF'
           cd ~/prescription-app
           # Update docker-compose to use pushed images
           sed -i 's|build:|#build:|g' docker-compose.prod.yml
@@ -290,7 +290,7 @@ jobs:
         fi
         
         # Start the application
-        ssh azureuser@4.213.115.214 << 'EOF'
+        ssh azureuser@74.225.140.65 << 'EOF'
         cd ~/prescription-app
         echo "🚀 Starting application..."
         docker-compose -f docker-compose.prod.yml up -d
@@ -305,7 +305,7 @@ jobs:
         docker-compose -f docker-compose.prod.yml logs --tail=20
         
         echo "✅ Deployment completed successfully!"
-        echo "🌐 Application should be available at: http://4.213.115.214"
+        echo "🌐 Application should be available at: http://74.225.140.65"
         EOF
 
 
@@ -315,7 +315,7 @@ jobs:
         sleep 10
         
         # Check if the application is responding
-        if curl -f http://4.213.115.214 > /dev/null 2>&1; then
+        if curl -f http://74.225.140.65 > /dev/null 2>&1; then
           echo "✅ Application is responding successfully!"
         else
           echo "❌ Application health check failed"
