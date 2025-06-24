@@ -67,7 +67,7 @@ jobs:
           database:
             image: postgres:15-alpine
             container_name: prescription_db
-            secretsironment:
+            environment:
               POSTGRES_DB: prescription_system
               POSTGRES_USER: prescription_user
               POSTGRES_PASSWORD: prescription_password
@@ -89,7 +89,7 @@ jobs:
           backend:
             image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
             container_name: prescription_backend
-            secretsironment:
+            environment:
               SPRING_PROFILES_ACTIVE: docker
               SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
               SPRING_DATASOURCE_USERNAME: prescription_user
@@ -226,7 +226,7 @@ jobs:
             database:
               image: postgres:15-alpine
               container_name: prescription_db
-              secretsironment:
+              environment:
                 POSTGRES_DB: prescription_system
                 POSTGRES_USER: prescription_user
                 POSTGRES_PASSWORD: prescription_password
@@ -246,7 +246,7 @@ jobs:
             backend:
               image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:${{ github.sha }}
               container_name: prescription_backend
-              secretsironment:
+              environment:
                 SPRING_PROFILES_ACTIVE: docker
                 SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
                 SPRING_DATASOURCE_USERNAME: prescription_user
