@@ -1,16 +1,19 @@
 package com.prescription.controller;
 
-import com.prescription.dto.LoginRequest;
-import com.prescription.dto.LoginResponse;
-import com.prescription.dto.SignUpRequest;
-import com.prescription.dto.SignUpResponse;
+import com.prescription.dto.*;
+import com.prescription.entity.User;
 import com.prescription.service.UserService;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
@@ -82,6 +85,41 @@ public class AuthController {
         response.addCookie(jwtCookie);
 
         return ResponseEntity.ok(new MessageResponse("User logged out successfully!"));
+    }
+
+    @PutMapping("/update")
+    public ResponseEntity<?> updateUser(
+            @Valid @RequestBody UpdateUserRequest updateUserRequest,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        try {
+            Map<String, Object> response2 = new HashMap<>();
+            Optional<User> optionalUser = userService.getUserById((Long) request.getAttribute("userId"));
+            if (optionalUser.isEmpty()) {
+                response2.put("success", false);
+                response2.put("message", "Patient not found");
+                return ResponseEntity.badRequest().body(response2);
+            }
+
+            UpdateUserResponse updateUserResponse = userService.updateUser(optionalUser.get(), updateUserRequest);
+
+            // Update JWT cookie if token is provided (optional)
+            if (updateUserResponse.getToken() != null) {
+                Cookie jwtCookie = new Cookie("jwt", updateUserResponse.getToken());
+                jwtCookie.setHttpOnly(true);
+                jwtCookie.setSecure(false); // true in prod (HTTPS)
+                jwtCookie.setPath("/");
+                jwtCookie.setMaxAge(24 * 60 * 60);
+                response.addCookie(jwtCookie);
+            }
+
+            return ResponseEntity.ok(updateUserResponse);
+
+        } catch (RuntimeException ex) {
+            // e.g., "User not found" or validation failure
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(ex.getMessage()));
+        }
     }
 
     // Helper classes for responses

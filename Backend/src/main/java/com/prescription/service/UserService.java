@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -128,6 +129,46 @@ public class UserService {
         dto.setBirthDate(user.getBirthDate());
         dto.setGender(user.getGender().name());
         return dto;
+    }
+
+    public UpdateUserResponse updateUser(User user, @Valid UpdateUserRequest req) {
+
+        // 2) Update allowed fields
+        user.setName(req.getName() != null ? req.getName() : user.getName());
+        user.setPhone(req.getPhone() != null ? req.getPhone() : user.getPhone());
+//        user.setBirthDate(req.getBirthDate() != null ? req.getBirthDate() : user.getBirthDate());
+//        user.setGender(req.getGender() != null ? req.getGender() : user.getGender());
+//        User.Gender gender = Objects.equals(req.getGender(), "MALE") ? User.Gender.MALE : (Objects.equals(req.getGender(), "FEMALE") ?User.Gender.FEMALE:User.Gender.OTHER);
+//        user.setGender(gender);
+
+        // 3) Save updated user
+        User updated = userRepository.save(user);
+
+        // 4) Generate new JWT (optional, only if email or role changes affect token)
+        String token = null;
+        if (req.getEmail() != null && !req.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(req.getEmail())) {
+                throw new RuntimeException("Email already exists: " + req.getEmail());
+            }
+            user.setEmail(req.getEmail());
+            token = jwtUtil.generateToken(
+                    updated.getEmail(),
+                    updated.getRole().name(),
+                    updated.getId()
+            );
+        }
+
+        // 5) Build response
+        return UpdateUserResponse.builder()
+                .id(updated.getId())
+                .name(updated.getName())
+                .email(updated.getEmail())
+                .phone(updated.getPhone())
+                .birthDate(updated.getBirthDate())
+//                .gender(gender.toString())
+                .role(updated.getRole().toString())
+                .token(token) // may be null if no new token was generated
+                .build();
     }
 
 
