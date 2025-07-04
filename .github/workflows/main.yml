@@ -124,6 +124,10 @@ jobs:
               SERVER_PORT: 8080
               FIREBASE_KEY: '${{ secrets.FIREBASE_KEY }}'
               JWT_SECRET: ${{ secrets.JWT_SECRET }}
+              SPRING_DATASOURCE_DRIVER: ${{ secrets.DB_DRIVER }}
+              SPRING_DATASOURCE_DIALECT: ${{ secrets.DB_DIALECT }}
+              FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+              AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
             ports:
               - "8080:8080"
             depends_on:
