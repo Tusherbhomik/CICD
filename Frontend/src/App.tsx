@@ -17,6 +17,7 @@ import PatientList from "./pages/doctor/PatientList";
 import PatientHistory from "./pages/doctor/PatientHistory";
 import AppointmentSchedule from "./pages/doctor/AppointmentSchedule";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
+import EditDoctorProfile from "./pages/doctor/EditProfile";
 import DoctorSettings from "./pages/doctor/DoctorSettings";
 
 // Patient Pages
@@ -56,6 +57,7 @@ const App = () => (
             element={<AppointmentSchedule />}
           />
           <Route path="/doctor/profile" element={<DoctorProfile />} />
+          <Route path="/doctor/profile/edit" element={<EditDoctorProfile />} />
           <Route path="/doctor/settings" element={<DoctorSettings />} />
 
           {/* Patient Routes */}

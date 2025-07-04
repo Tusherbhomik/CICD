@@ -1,7 +1,9 @@
 import MainLayout from "@/components/layout/MainLayout";
+import { cn } from "@/lib/utils";
 import { API_BASE_URL } from '@/url';
 import { Mail, Phone, MapPin, Calendar, Edit, Award, GraduationCap, Camera, Trash2, Upload } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
 
 const DoctorProfile = () => {
   const [image, setImage] = useState('');
@@ -263,7 +265,15 @@ const DoctorProfile = () => {
             </div>
             <button className="btn-primary flex items-center gap-2">
               <Edit className="w-5 h-5" />
-              <span>Edit Profile</span>
+              <Link
+                to="/doctor/profile/edit"
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+                )}
+              >
+                <Edit className="w-5 h-5" />
+                <span>Edit Profile</span>
+              </Link>
             </button>
           </div>
 
