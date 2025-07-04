@@ -258,11 +258,17 @@ public class AppointmentController {
     /**
      * Doctor gets all appointments (any status)
      */
-    @GetMapping("/doctor/{doctorId}/all")
+    @GetMapping("/doctor/all")
     public ResponseEntity<List<AppointmentResponseDTO>> getAllDoctorAppointments(
-            @PathVariable Long doctorId,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
         try {
+            Optional<User> optionalUser = userService.getUserById((Long) request.getAttribute("userId"));
+            if (optionalUser.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+            User currentUser = optionalUser.get();
+            Long doctorId = currentUser.getId();
             List<Appointment> appointments;
             if (status != null && !status.isEmpty()) {
                 Appointment.Status appointmentStatus = Appointment.Status.valueOf(status.toUpperCase());
