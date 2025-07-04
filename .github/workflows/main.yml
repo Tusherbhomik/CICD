@@ -33,7 +33,7 @@ jobs:
         spring.jpa.hibernate.ddl-auto=create-drop
         spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
         spring.jpa.show-sql=false
-        app.jwt.secret=test-secret-key-for-jwt-token-generation-in-test-environment
+        app.jwt.secret=${{ secrets.JWT_SECRET }}
         app.jwt.expiration=86400000
         server.port=8080
         server.servlet.context-path=/api
@@ -101,8 +101,8 @@ jobs:
             container_name: prescription_db
             environment:
               POSTGRES_DB: prescription_system
-              POSTGRES_USER: prescription_user
-              POSTGRES_PASSWORD: prescription_password
+              POSTGRES_USER: ${{ secrets.DB_USERNAME }}
+              POSTGRES_PASSWORD: ${{ secrets.PASSWORD }}
             volumes:
               - postgres_data:/var/lib/postgresql/data
             ports:
@@ -123,6 +123,7 @@ jobs:
               SPRING_JPA_SHOW_SQL: false
               SERVER_PORT: 8080
               FIREBASE_KEY: '${{ secrets.FIREBASE_KEY }}'
+              JWT_SECRET: ${{ secrets.JWT_SECRET }}
             ports:
               - "8080:8080"
             depends_on:
