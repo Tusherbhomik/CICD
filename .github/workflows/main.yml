@@ -116,7 +116,7 @@ jobs:
             container_name: prescription_backend
             environment:
               SPRING_PROFILES_ACTIVE: docker
-              SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
+              SPRING_DATASOURCE_URL: '${{ secrets.DB_URL }}'
               SPRING_DATASOURCE_USERNAME: prescription_user
               SPRING_DATASOURCE_PASSWORD: prescription_password
               SPRING_JPA_HIBERNATE_DDL_AUTO: update
