@@ -2,6 +2,9 @@ package com.prescription.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -11,11 +14,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 // Medicine Timing Entity
+@Data
 @Entity
 @Table(name = "medicine_timings")
 @EntityListeners(AuditingEntityListener.class)
 public class MedicineTiming {
 
+    // Getters and Setters
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -62,79 +67,6 @@ public class MedicineTiming {
         this.mealRelation = mealRelation;
         this.timeOfDay = timeOfDay;
         this.amount = amount;
-    }
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public PrescriptionMedicine getPrescriptionMedicine() {
-        return prescriptionMedicine;
-    }
-
-    public void setPrescriptionMedicine(PrescriptionMedicine prescriptionMedicine) {
-        this.prescriptionMedicine = prescriptionMedicine;
-    }
-
-    public MealRelation getMealRelation() {
-        return mealRelation;
-    }
-
-    public void setMealRelation(MealRelation mealRelation) {
-        this.mealRelation = mealRelation;
-    }
-
-    public TimeOfDay getTimeOfDay() {
-        return timeOfDay;
-    }
-
-    public void setTimeOfDay(TimeOfDay timeOfDay) {
-        this.timeOfDay = timeOfDay;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public LocalTime getSpecificTime() {
-        return specificTime;
-    }
-
-    public void setSpecificTime(LocalTime specificTime) {
-        this.specificTime = specificTime;
-    }
-
-    public Integer getIntervalHours() {
-        return intervalHours;
-    }
-
-    public void setIntervalHours(Integer intervalHours) {
-        this.intervalHours = intervalHours;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 
     // Enums

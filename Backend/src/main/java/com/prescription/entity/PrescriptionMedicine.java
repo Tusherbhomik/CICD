@@ -2,6 +2,9 @@ package com.prescription.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -10,11 +13,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 // Prescription Medicine Entity
+@Data
 @Entity
 @Table(name = "prescription_medicines")
 @EntityListeners(AuditingEntityListener.class)
 public class PrescriptionMedicine {
 
+    // Getters and Setters
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,68 +60,4 @@ public class PrescriptionMedicine {
         this.durationDays = durationDays;
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Prescription getPrescription() {
-        return prescription;
-    }
-
-    public void setPrescription(Prescription prescription) {
-        this.prescription = prescription;
-    }
-
-    public Medicine getMedicine() {
-        return medicine;
-    }
-
-    public void setMedicine(Medicine medicine) {
-        this.medicine = medicine;
-    }
-
-    public Integer getDurationDays() {
-        return durationDays;
-    }
-
-    public void setDurationDays(Integer durationDays) {
-        this.durationDays = durationDays;
-    }
-
-    public String getSpecialInstructions() {
-        return specialInstructions;
-    }
-
-    public void setSpecialInstructions(String specialInstructions) {
-        this.specialInstructions = specialInstructions;
-    }
-
-    public List<MedicineTiming> getMedicineTimings() {
-        return medicineTimings;
-    }
-
-    public void setMedicineTimings(List<MedicineTiming> medicineTimings) {
-        this.medicineTimings = medicineTimings;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 }
