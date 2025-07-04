@@ -139,7 +139,7 @@ const DoctorProfile = () => {
     
     setIsImageLoading(true);
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('file', file);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/profile/image/upload`, {
@@ -171,7 +171,7 @@ const DoctorProfile = () => {
     
     setIsImageLoading(true);
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('file', file);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/profile/image/update`, {
