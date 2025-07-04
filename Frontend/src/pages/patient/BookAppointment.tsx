@@ -206,7 +206,7 @@ const BookAppointment = ({ patientId = 1 }) => {
       };
 
       const response = await fetch(
-        `${{ API_BASE_URL }}/api/appointments/request`,
+        `${ API_BASE_URL }/api/appointments/request`,
         {
           method: "POST",
           headers: {
