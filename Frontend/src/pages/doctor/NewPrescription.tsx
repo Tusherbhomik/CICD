@@ -237,7 +237,7 @@ const NewPrescription = () => {
     const fetchPatients = async () => {
       setIsLoadingPatients(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/patients`, {
+        const response = await fetch(`${API_BASE_URL}/api/patients`, {
           method: "GET",
           credentials: "include",
         });
