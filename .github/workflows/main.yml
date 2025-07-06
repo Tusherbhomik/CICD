@@ -77,10 +77,10 @@ jobs:
           cache-dependency-path: Frontend/package-lock.json
 
     - name: Install frontend dependencies
-      run:
+      run: |
           cd Frontend
           npm ci
-          npm run test  Login.tex.tsx 
+          npm run test Login.tex.tsx 
           npm run SignUp.test.tsx 
           npm run Footer.test.tsx
 
