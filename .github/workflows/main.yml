@@ -80,9 +80,7 @@ jobs:
       run: |
           cd Frontend
           npm ci
-          npm run test Login.tex.tsx 
-          npm run test SignUp.test.tsx 
-          npm run test Footer.test.tsx
+          npx vitest run
 
      # 4. Login to Docker Hub
     - name: Login to Docker Hub
