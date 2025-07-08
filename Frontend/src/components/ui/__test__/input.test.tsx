@@ -11,7 +11,8 @@ describe('Input Component', () => {
       render(<Input />);
       const input = screen.getByRole('textbox');
       expect(input).toBeInTheDocument();
-      expect(input).toHaveAttribute('type', 'text');
+      // Default type for input is implicit, so checking for textbox role is sufficient
+      expect(input).toHaveProperty('type', 'text');
     });
 
     it('should render with different input types', () => {
@@ -19,13 +20,16 @@ describe('Input Component', () => {
       expect(screen.getByRole('textbox')).toHaveAttribute('type', 'email');
 
       rerender(<Input type="password" />);
-      expect(screen.getByLabelText(/password/i) || screen.getByDisplayValue('')).toHaveAttribute('type', 'password');
+      // Password inputs don't have textbox role, need to query by input element
+      const passwordInput = screen.getByDisplayValue('');
+      expect(passwordInput).toHaveAttribute('type', 'password');
 
       rerender(<Input type="number" />);
       expect(screen.getByRole('spinbutton')).toHaveAttribute('type', 'number');
 
       rerender(<Input type="date" />);
-      const dateInput = screen.getByDisplayValue('');
+      // Date inputs might not have standard roles, query by input element
+      const dateInput = document.querySelector('input[type="date"]');
       expect(dateInput).toHaveAttribute('type', 'date');
     });
 
@@ -195,14 +199,14 @@ describe('Input Component', () => {
 
   describe('Ref Forwarding', () => {
     it('should forward ref to input element', () => {
-      const ref = { current: null };
+      const ref = React.createRef<HTMLInputElement>();
       render(<Input ref={ref} />);
       
       expect(ref.current).toBeInstanceOf(HTMLInputElement);
     });
 
     it('should allow ref to access input methods', () => {
-      const ref = { current: null };
+      const ref = React.createRef<HTMLInputElement>();
       render(<Input ref={ref} defaultValue="test" />);
       
       expect(ref.current?.value).toBe('test');
@@ -211,14 +215,14 @@ describe('Input Component', () => {
 
   describe('File Input Specific', () => {
     it('should handle file input type', () => {
-      render(<Input type="file" />);
-      const input = screen.getByRole('textbox') || document.querySelector('input[type="file"]');
+      render(<Input type="file" data-testid="file-input" />);
+      const input = screen.getByTestId('file-input');
       expect(input).toHaveAttribute('type', 'file');
     });
 
     it('should apply file-specific styling', () => {
-      render(<Input type="file" />);
-      const input = screen.getByRole('textbox') || document.querySelector('input[type="file"]');
+      render(<Input type="file" data-testid="file-input" />);
+      const input = screen.getByTestId('file-input');
       expect(input).toHaveClass('file:border-0', 'file:bg-transparent');
     });
   });
