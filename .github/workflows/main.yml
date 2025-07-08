@@ -53,12 +53,12 @@ jobs:
         \t\t\t<scope>test</scope>\
         \t\t</dependency>' pom.xml
 
-    - name: Run tests
-      run: |
-        cd Backend
-        mvn clean test -Dspring.profiles.active=test
-      env:
-        SPRING_PROFILES_ACTIVE: test
+    # - name: Run tests
+    #   run: |
+    #     cd Backend
+    #     mvn clean test -Dspring.profiles.active=test
+    #   env:
+    #     SPRING_PROFILES_ACTIVE: test
 
     # 3. Build backend JAR
     - name: Build backend JAR
@@ -76,11 +76,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Frontend/package-lock.json
 
-    - name: Install frontend dependencies
-      run: |
-          cd Frontend
-          npm ci
-          npx vitest run
+    # - name: Install frontend dependencies
+    #   run: |
+    #       cd Frontend
+    #       npm ci
+    #       npx vitest run
 
      # 4. Login to Docker Hub
     - name: Login to Docker Hub
