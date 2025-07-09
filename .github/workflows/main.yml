@@ -41,6 +41,10 @@ jobs:
         logging.level.com.medscribe=INFO
         firebase.storage.bucket=${{ secrets.FIREBASE_STORAGE_BUCKET }}
         firebase.service.account.key.json=${{ secrets.FIREBASE_KEY }}
+        spring.servlet.multipart.max-file-size=5MB
+        spring.servlet.multipart.max-request-size=5MB
+        app.profile.image.max-size=5242880
+        app.profile.image.allowed-types=image/jpeg,image/png,image/webp
         EOF
 
     - name: Add H2 dependency for tests
