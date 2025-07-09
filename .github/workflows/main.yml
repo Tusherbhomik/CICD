@@ -53,11 +53,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Frontend/package-lock.json
 
-    # - name: Install frontend dependencies
-    #   run: |
-    #       cd Frontend
-    #       npm ci
-    #       npx vitest run
+    - name: Install frontend dependencies
+      run: |
+        cd Frontend
+        npm ci
+        npm test
 
      # 4. Login to Docker Hub
     - name: Login to Docker Hub
