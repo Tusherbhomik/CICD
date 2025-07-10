@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Pill, // Added for Medicines icon
   Settings,
   User,
   Users,
@@ -45,6 +46,11 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
       title: "Prescriptions",
       href: "/doctor/new-prescription",
       icon: FileText,
+    },
+    {
+      title: "Medicines", // New Medicines option
+      href: "/doctor/medicines",
+      icon: Pill, // Using Pill icon for medicines
     },
     {
       title: "Profile",
