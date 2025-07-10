@@ -1,174 +1,1171 @@
-import MainLayout  from "@/components/layout/MainLayout";
-import { Bell, Lock, User, Calendar, Clock, Save } from "lucide-react";
+import MainLayout from "@/components/layout/MainLayout";
+import { Bell, Lock, User, Calendar, Save, Clock, Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { API_BASE_URL } from '@/url';
+
+interface AppointmentSettings {
+  appointmentDuration: number;
+  breakTime: number;
+}
+
+interface TimeSlot {
+  startTime: string;
+  endTime: string;
+}
+
+interface AvailabilityTemplate {
+  id?: number;
+  name: string;
+  templateType: 'DAILY' | 'WEEKLY' | 'CUSTOM';
+  daysOfWeek: string[];
+  timeSlots: TimeSlot[];
+  isActive: boolean;
+  description?: string;
+}
+
+interface AvailabilityException {
+  id?: number;
+  date: string;
+  exceptionType: 'UNAVAILABLE' | 'CUSTOM_HOURS';
+  timeSlots?: TimeSlot[];
+  reason?: string;
+}
 
 const DoctorSettings = () => {
+  const [settings, setSettings] = useState<AppointmentSettings>({
+    appointmentDuration: 30,
+    breakTime: 10,
+  });
+  const [templates, setTemplates] = useState<AvailabilityTemplate[]>([]);
+  const [exceptions, setExceptions] = useState<AvailabilityException[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('profile');
+
+  // Template form state
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<AvailabilityTemplate | null>(null);
+  const [templateForm, setTemplateForm] = useState<AvailabilityTemplate>({
+    name: '',
+    templateType: 'DAILY',
+    daysOfWeek: [],
+    timeSlots: [{ startTime: '09:00', endTime: '17:00' }],
+    isActive: true,
+    description: ''
+  });
+
+  // Exception form state
+  const [showExceptionForm, setShowExceptionForm] = useState(false);
+  const [editingException, setEditingException] = useState<AvailabilityException | null>(null);
+  const [exceptionForm, setExceptionForm] = useState<AvailabilityException>({
+    date: '',
+    exceptionType: 'UNAVAILABLE',
+    timeSlots: [],
+    reason: ''
+  });
+
+  const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Fetch all data on mount
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  
+  const fetchAllData = async () => {
+      try {
+          setLoading(true);
+          const token = localStorage.getItem("authToken");
+
+          // Execute all fetches concurrently and await their JSON parsing once
+          const [settingsData, templatesData, exceptionsData] = await Promise.all([
+              fetch(`${API_BASE_URL}/api/doctor-availability/settings`, {
+                  method: "GET",
+                  credentials: "include"
+              }).then(res => {
+                  if (!res.ok) throw new Error("Failed to load settings");
+                  return res.json();
+              }),
+              fetch(`${API_BASE_URL}/api/doctor-availability/templates`, {
+                  method: "GET",
+                  credentials: "include"
+              }).then(res => {
+                  if (!res.ok) throw new Error("Failed to load templates");
+                  return res.json();
+              }),
+              fetch(`${API_BASE_URL}/api/doctor-availability/exceptions`, {
+                  method: "GET",
+                  credentials: "include"
+              }).then(res => {
+                  if (!res.ok) throw new Error("Failed to load exceptions");
+                  return res.json();
+              })
+          ]);
+
+          // --- Start of Template Transformation ---
+          const transformedTemplates: AvailabilityTemplate[] = templatesData.map((apiTemplate: any) => {
+              const dayMap: { [key: number]: string } = {
+                1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY',
+                6: 'SATURDAY', 7: 'SUNDAY',
+              };
+
+              let mappedDaysOfWeek: string[] = [];
+              if (typeof apiTemplate.daysOfWeek === 'string') {
+                mappedDaysOfWeek = apiTemplate.daysOfWeek
+                  .split(',')
+                  .filter(Boolean)
+                  .map(Number)
+                  .map((numDay: number) => dayMap[numDay] || '');
+              } else if (Array.isArray(apiTemplate.daysOfWeek)) {
+                mappedDaysOfWeek = apiTemplate.daysOfWeek.map((numDay: number) => dayMap[numDay] || '');
+              }
+
+              // --- FIX IS HERE: Declare templateTimeSlots before the conditional logic ---
+              let templateTimeSlots: TimeSlot[] = [];
+              if (apiTemplate.startTime && apiTemplate.endTime) {
+                  templateTimeSlots.push({
+                      startTime: apiTemplate.startTime.substring(0, 5),
+                      endTime: apiTemplate.endTime.substring(0, 5)
+                  });
+              } else if (Array.isArray(apiTemplate.timeSlots)) {
+                  // If backend does send a timeSlots array in templates, handle it here
+                  templateTimeSlots = apiTemplate.timeSlots.map((slot: any) => ({
+                      startTime: slot.startTime ? slot.startTime.substring(0, 5) : '00:00', // Defensive check
+                      endTime: slot.endTime ? slot.endTime.substring(0, 5) : '00:00'       // Defensive check
+                  }));
+              } else {
+                  // Default if no time data from backend
+                  templateTimeSlots.push({ startTime: '09:00', endTime: '17:00' });
+              }
+
+              return {
+                id: apiTemplate.id,
+                name: apiTemplate.templateName || '',
+                templateType: apiTemplate.scheduleType || 'DAILY',
+                daysOfWeek: mappedDaysOfWeek,
+                timeSlots: templateTimeSlots, // Now correctly defined and assigned
+                isActive: apiTemplate.isActive ?? true,
+                description: apiTemplate.description || ''
+              };
+          });
+          // --- End of Template Transformation ---
+
+
+          // --- Start of Exception Transformation ---
+          const transformedExceptions: AvailabilityException[] = exceptionsData.map((apiException: any) => {
+              let timeSlots: TimeSlot[] = [];
+              if (apiException.exceptionType === 'CUSTOM_HOURS' && apiException.startTime && apiException.endTime) {
+                  const formattedStartTime = apiException.startTime.substring(0, 5);
+                  const formattedEndTime = apiException.endTime.substring(0, 5);
+                  timeSlots.push({ startTime: formattedStartTime, endTime: formattedEndTime });
+              }
+
+              return {
+                  id: apiException.id,
+                  date: apiException.exceptionDate || '',
+                  exceptionType: apiException.exceptionType,
+                  timeSlots: timeSlots,
+                  reason: apiException.reason || ''
+              };
+          });
+          // --- End of Exception Transformation ---
+
+          setSettings(settingsData);
+          setTemplates(transformedTemplates);
+          setExceptions(transformedExceptions);
+
+      } catch (err: any) {
+          console.error("Error fetching data:", err);
+          setError(`Failed to load data: ${err.message}`);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  // Handle settings save
+  const handleSaveSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/doctor-availability/settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify(settings)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update settings");
+      }
+
+      setSuccess("Settings updated successfully");
+    } catch (err: any) {
+      setError(err.message || "Failed to update settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Template management
+  const handleSaveTemplate = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem("authToken");
+
+      // Transform templateForm to match AvailabilityTemplateDTO
+      const payload = {
+        id: editingTemplate?.id,
+        templateName: templateForm.name,
+        scheduleType: templateForm.templateType,
+        startTime: templateForm.timeSlots[0]?.startTime + ':00', // Ensure HH:mm:ss format
+        endTime: templateForm.timeSlots[0]?.endTime + ':00', // Ensure HH:mm:ss format
+        daysOfWeek: templateForm.daysOfWeek.map(day => daysOfWeek.indexOf(day) + 1),
+        startDate: templateForm.startDate || null, // Add if needed
+        endDate: templateForm.endDate || null, // Add if needed
+        specificDates: templateForm.specificDates || null, // Add if needed
+        isActive: templateForm.isActive,
+        priority: templateForm.priority || 1 // Add default priority
+      };
+
+      const response = await fetch(
+        editingTemplate 
+          ? `${API_BASE_URL}/api/doctor-availability/templates/${editingTemplate.id}` 
+          : `${API_BASE_URL}/api/doctor-availability/templates`,
+        {
+          method: editingTemplate ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save template");
+      }
+
+      setSuccess(editingTemplate ? "Template updated successfully" : "Template created successfully");
+      setShowTemplateForm(false);
+      setEditingTemplate(null);
+      resetTemplateForm();
+      fetchAllData();
+    } catch (err: any) {
+      setError(err.message || "Failed to save template");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: number) => {
+    if (!confirm("Are you sure you want to delete this template?")) return;
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/doctor-availability/templates/${templateId}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete template");
+      }
+
+      setSuccess("Template deleted successfully");
+      fetchAllData();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete template");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Exception management
+  const handleSaveException = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem("authToken");
+
+      const payload = {
+        id: editingException?.id,
+        exceptionDate: exceptionForm.date, // Map frontend's date to backend's exceptionDate
+        exceptionType: exceptionForm.exceptionType,
+        // Extract startTime and endTime from the first timeSlot if CUSTOM_HOURS, otherwise null
+        startTime: exceptionForm.exceptionType === 'CUSTOM_HOURS' && exceptionForm.timeSlots && exceptionForm.timeSlots.length > 0
+                    ? exceptionForm.timeSlots[0].startTime + ':00' // Append seconds for LocalTime
+                    : null,
+        endTime: exceptionForm.exceptionType === 'CUSTOM_HOURS' && exceptionForm.timeSlots && exceptionForm.timeSlots.length > 0
+                  ? exceptionForm.timeSlots[0].endTime + ':00' // Append seconds for LocalTime
+                  : null,
+        reason: exceptionForm.reason
+      };
+
+      const response = await fetch(
+        editingException
+          ? `${API_BASE_URL}/api/doctor-availability/exceptions/${editingException.id}`
+          : `${API_BASE_URL}/api/doctor-availability/exceptions`,
+        {
+          method: editingException ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: "include",
+          body: JSON.stringify(payload) // Send the transformed payload
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save exception");
+      }
+
+      setSuccess(editingException ? "Exception updated successfully" : "Exception created successfully");
+      setShowExceptionForm(false);
+      setEditingException(null);
+      resetExceptionForm();
+      fetchAllData();
+    } catch (err: any) {
+      setError(err.message || "Failed to save exception");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteException = async (exceptionId: number) => {
+    if (!confirm("Are you sure you want to delete this exception?")) return;
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/doctor-availability/exceptions/${exceptionId}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete exception");
+      }
+
+      setSuccess("Exception deleted successfully");
+      fetchAllData();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete exception");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Regenerate slots
+  const handleRegenerateSlots = async () => {
+    if (!confirm("This will regenerate all your availability slots. Continue?")) return;
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/api/doctor-availability/regenerate-slots`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to regenerate slots");
+      }
+
+      setSuccess("All slots regenerated successfully");
+    } catch (err: any) {
+      setError(err.message || "Failed to regenerate slots");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper functions
+  const resetTemplateForm = () => {
+    setTemplateForm({
+      name: '',
+      templateType: 'DAILY',
+      daysOfWeek: [],
+      timeSlots: [{ startTime: '09:00', endTime: '17:00' }],
+      isActive: true,
+      description: ''
+    });
+  };
+
+  const resetExceptionForm = () => {
+    setExceptionForm({
+      date: '',
+      exceptionType: 'UNAVAILABLE',
+      timeSlots: [],
+      reason: ''
+    });
+  };
+
+  const addTimeSlot = (isTemplate: boolean = true) => {
+    if (isTemplate) {
+      setTemplateForm({
+        ...templateForm,
+        timeSlots: [...(templateForm.timeSlots||[]), { startTime: '09:00', endTime: '17:00' }]
+      });
+    } else {
+      setExceptionForm({
+        ...exceptionForm,
+        timeSlots: [...(exceptionForm.timeSlots || []), { startTime: '09:00', endTime: '17:00' }]
+      });
+    }
+  };
+
+  const removeTimeSlot = (index: number, isTemplate: boolean = true) => {
+    if (isTemplate) {
+      setTemplateForm({
+        ...templateForm,
+        timeSlots: templateForm.timeSlots.filter((_, i) => i !== index)
+      });
+    } else {
+      setExceptionForm({
+        ...exceptionForm,
+        timeSlots: exceptionForm.timeSlots?.filter((_, i) => i !== index) || []
+      });
+    }
+  };
+
+  const updateTimeSlot = (index: number, field: 'startTime' | 'endTime', value: string, isTemplate: boolean = true) => {
+    if (isTemplate) {
+      const newSlots = [...templateForm.timeSlots];
+      newSlots[index][field] = value;
+      setTemplateForm({ ...templateForm, timeSlots: newSlots });
+    } else {
+      const newSlots = [...(exceptionForm.timeSlots || [])];
+      newSlots[index][field] = value;
+      setExceptionForm({ ...exceptionForm, timeSlots: newSlots });
+    }
+  };
+
+  const handleDayToggle = (day: string) => {
+    console.log(templateForm)
+    const newDays = templateForm.daysOfWeek.includes(day)
+      ? templateForm.daysOfWeek.filter(d => d !== day)
+      : [...templateForm.daysOfWeek, day];
+    setTemplateForm({ ...templateForm, daysOfWeek: newDays });
+  };
+
+  const editTemplate = (template: AvailabilityTemplate) => {
+  setEditingTemplate(template);
+  setTemplateForm({
+    ...template,
+    daysOfWeek: template.daysOfWeek || [],
+    isActive: template.isActive ?? true // <--- Add this line for isActive
+    // The nullish coalescing operator (??) ensures it's true if template.isActive is null or undefined
+  });
+  setShowTemplateForm(true);
+};
+
+  const editException = (exception: AvailabilityException) => {
+    setEditingException(exception);
+    setExceptionForm(exception);
+    setShowExceptionForm(true);
+  };
+
   return (
     <MainLayout userType="doctor">
       <div className="space-y-8">
         {/* Header */}
         <div>
           <h1 className="page-title">Settings</h1>
-          <p className="text-gray-600">Manage your account preferences</p>
+          <p className="text-gray-600">Manage your account preferences and availability</p>
         </div>
 
-        {/* Settings Sections */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Profile Settings */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold">Profile Settings</h2>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Display Name
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  defaultValue="Dr. Sarah Wilson"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Specialization
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  defaultValue="Cardiologist"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bio
-                </label>
-                <textarea
-                  className="form-input min-h-[100px]"
-                  defaultValue="Experienced cardiologist with 15 years of practice..."
-                />
-              </div>
-            </div>
+        {/* Feedback Messages */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <span className="text-red-700">{error}</span>
           </div>
+        )}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
+            <span className="text-green-700">{success}</span>
+          </div>
+        )}
 
-          {/* Notification Settings */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bell className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold">Notification Settings</h2>
-            </div>
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8">
+            {[
+              { id: 'profile', label: 'Profile', icon: User },
+              { id: 'availability', label: 'Availability', icon: Calendar },
+              { id: 'schedule', label: 'Schedule', icon: Clock },
+              { id: 'notifications', label: 'Notifications', icon: Bell },
+              { id: 'security', label: 'Security', icon: Lock }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Email Notifications</h3>
-                  <p className="text-sm text-gray-600">
-                    Receive updates about appointments
-                  </p>
+        {/* Tab Content */}
+        <div className="space-y-8">
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <div className="card">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-5 h-5 text-primary" />
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                </label>
+                <h2 className="text-lg font-semibold">Profile Settings</h2>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium">SMS Notifications</h3>
-                  <p className="text-sm text-gray-600">
-                    Get text messages for urgent updates
-                  </p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Display Name
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    defaultValue="Dr. Sarah Wilson"
+                  />
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Specialization
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    defaultValue="Cardiologist"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bio
+                  </label>
+                  <textarea
+                    className="form-input min-h-[100px]"
+                    defaultValue="Experienced cardiologist with 15 years of practice..."
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Schedule Settings */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold">Schedule Settings</h2>
-            </div>
+          {/* Availability Tab */}
+          {activeTab === 'availability' && (
+            <div className="space-y-6">
+              {/* Availability Templates */}
+              <div className="card">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold">Availability Templates</h2>
+                      <p className="text-sm text-gray-600">Set your regular working hours</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowTemplateForm(true)}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Template
+                  </button>
+                </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Appointment Duration
-                </label>
-                <select className="form-input">
-                  <option>15 minutes</option>
-                  <option selected>30 minutes</option>
-                  <option>45 minutes</option>
-                  <option>60 minutes</option>
-                </select>
+                {templates.length > 0 ? (
+                  <div className="space-y-4">
+                    {(templates||[]).map((template) => (
+                      <div key={template.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-medium">{template.name}</h3>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              template.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {template.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => editTemplate(template)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTemplate(template.id!)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <p><strong>Type:</strong> {template.templateType}</p>
+                          {template.templateType === 'WEEKLY' && (
+                            <p><strong>Days:</strong> {template.daysOfWeek.join(', ')}</p>
+                          )}
+                          <p><strong>Time Slots:</strong> {(template.timeSlots||[]).map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ')}</p>
+                          {template.description && <p><strong>Description:</strong> {template.description}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No availability templates created yet</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Break Time
-                </label>
-                <select className="form-input">
-                  <option>5 minutes</option>
-                  <option selected>10 minutes</option>
-                  <option>15 minutes</option>
-                  <option>20 minutes</option>
-                </select>
-              </div>
-            </div>
-          </div>
 
-          {/* Security Settings */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Lock className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold">Security Settings</h2>
-            </div>
+              {/* Availability Exceptions */}
+              <div className="card">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold">Availability Exceptions</h2>
+                      <p className="text-sm text-gray-600">Manage special dates and time changes</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowExceptionForm(true)}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Exception
+                  </button>
+                </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Password
-                </label>
-                <input type="password" className="form-input" />
+                {exceptions.length > 0 ? (
+                  <div className="space-y-4">
+                    {(exceptions || []).map((exception) => ( // Added || [] for safety, though setExceptions makes it an array
+                      <div key={exception.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            {/* Display the date */}
+                            <h3 className="font-medium">{exception.date}</h3>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              exception.exceptionType === 'UNAVAILABLE'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {exception.exceptionType}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => editException(exception)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteException(exception.id!)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {exception.exceptionType === 'CUSTOM_HOURS' && exception.timeSlots && (
+                            // Display time slots if type is CUSTOM_HOURS and timeSlots exist
+                            <p><strong>Time Slots:</strong> {(exception.timeSlots || []).map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ')}</p>
+                          )}
+                          {exception.reason && <p><strong>Reason:</strong> {exception.reason}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No availability exceptions created yet</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  New Password
-                </label>
-                <input type="password" className="form-input" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm New Password
-                </label>
-                <input type="password" className="form-input" />
+
+              {/* Regenerate Slots */}
+              <div className="card">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Regenerate All Slots</h3>
+                    <p className="text-sm text-gray-600">Regenerate all availability slots based on your current templates and exceptions</p>
+                  </div>
+                  <button
+                    onClick={handleRegenerateSlots}
+                    className="btn-secondary"
+                    disabled={loading}
+                  >
+                    {loading ? 'Regenerating...' : 'Regenerate Slots'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Schedule Tab */}
+          {activeTab === 'schedule' && (
+            <div className="card">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg font-semibold">Schedule Settings</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Appointment Duration
+                  </label>
+                  <select
+                    className="form-input"
+                    value={settings.appointmentDuration}
+                    onChange={(e) => setSettings({ ...settings, appointmentDuration: Number(e.target.value) })}
+                    disabled={loading}
+                  >
+                    <option value={15}>15 minutes</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={45}>45 minutes</option>
+                    <option value={60}>60 minutes</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Break Time
+                  </label>
+                  <select
+                    className="form-input"
+                    value={settings.breakTime}
+                    onChange={(e) => setSettings({ ...settings, breakTime: Number(e.target.value) })}
+                    disabled={loading}
+                  >
+                    <option value={5}>5 minutes</option>
+                    <option value={10}>10 minutes</option>
+                    <option value={15}>15 minutes</option>
+                    <option value={20}>20 minutes</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications Tab */}
+          {activeTab === 'notifications' && (
+            <div className="card">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg font-semibold">Notification Settings</h2>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Email Notifications</h3>
+                    <p className="text-sm text-gray-600">Receive updates about appointments</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" defaultChecked />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">SMS Notifications</h3>
+                    <p className="text-sm text-gray-600">Get text messages for urgent updates</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <div className="card">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg font-semibold">Security Settings</h2>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                  </label>
+                  <input type="password" className="form-input" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <input type="password" className="form-input" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input type="password" className="form-input" />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <button className="btn-primary flex items-center gap-2">
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={handleSaveSettings}
+            disabled={loading}
+          >
             <Save className="w-5 h-5" />
-            <span>Save Changes</span>
+            <span>{loading ? "Saving..." : "Save Changes"}</span>
           </button>
         </div>
+
+        {/* Template Form Modal */}
+        {showTemplateForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">
+                  {editingTemplate ? 'Edit Template' : 'Create Template'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowTemplateForm(false);
+                    setEditingTemplate(null);
+                    resetTemplateForm();
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Template Name
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={templateForm.name||""}
+                    onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                    placeholder="e.g., Regular Hours"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Template Type
+                  </label>
+                  <select
+                    className="form-input"
+                    value={templateForm.templateType}
+                    onChange={(e) => setTemplateForm({ ...templateForm, templateType: e.target.value as 'DAILY' | 'WEEKLY' | 'CUSTOM' })}
+                  >
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="CUSTOM">Custom</option>
+                  </select>
+                </div>
+
+                {templateForm.templateType === 'WEEKLY' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Days of Week
+                    </label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {(daysOfWeek||[]).map((day, index) => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => handleDayToggle(day)}
+                          className={`p-2 text-sm rounded border ${
+                            (templateForm.daysOfWeek||[]).includes(day)
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {dayLabels[index]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Time Slots
+                  </label>
+                  <div className="space-y-2">
+                    {(templateForm.timeSlots||[]).map((slot, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          className="form-input"
+                          value={slot.startTime||""}
+                          onChange={(e) => updateTimeSlot(index, 'startTime', e.target.value, true)}
+                        />
+                        <span>to</span>
+                        <input
+                          type="time"
+                          className="form-input"
+                          value={slot.endTime||""}
+                          onChange={(e) => updateTimeSlot(index, 'endTime', e.target.value, true)}
+                        />
+                        {templateForm.timeSlots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeTimeSlot(index, true)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addTimeSlot(true)}
+                      className="flex items-center gap-2 text-primary hover:text-primary-dark"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Time Slot
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    className="form-input"
+                    value={templateForm.description}
+                    onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
+                    placeholder="Brief description of this template..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="templateActive"
+                    checked={templateForm.isActive}
+                    onChange={(e) => setTemplateForm({ ...templateForm, isActive: e.target.checked })}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="templateActive" className="ml-2 text-sm text-gray-700">
+                    Active Template
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTemplateForm(false);
+                    setEditingTemplate(null);
+                    resetTemplateForm();
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  className="btn-primary"
+                  disabled={loading || !templateForm.name}
+                >
+                  {loading ? 'Saving...' : editingTemplate ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Exception Form Modal */}
+        {showExceptionForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">
+                  {editingException ? 'Edit Exception' : 'Create Exception'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowExceptionForm(false);
+                    setEditingException(null);
+                    resetExceptionForm();
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={exceptionForm.date||""}
+                    onChange={(e) => setExceptionForm({ ...exceptionForm, date: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Exception Type
+                  </label>
+                  <select
+                    className="form-input"
+                    value={exceptionForm.exceptionType}
+                    onChange={(e) => setExceptionForm({ 
+                      ...exceptionForm, 
+                      exceptionType: e.target.value as 'UNAVAILABLE' | 'CUSTOM_HOURS',
+                      timeSlots: e.target.value === 'UNAVAILABLE' ? [] : exceptionForm.timeSlots
+                    })}
+                  >
+                    <option value="UNAVAILABLE">Unavailable</option>
+                    <option value="CUSTOM_HOURS">Custom Hours</option>
+                  </select>
+                </div>
+
+                {exceptionForm.exceptionType === 'CUSTOM_HOURS' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Time Slots
+                    </label>
+                    <div className="space-y-2">
+                      {(exceptionForm.timeSlots || []).map((slot, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            className="form-input"
+                            value={slot.startTime||""}
+                            onChange={(e) => updateTimeSlot(index, 'startTime', e.target.value, false)}
+                          />
+                          <span>to</span>
+                          <input
+                            type="time"
+                            className="form-input"
+                            value={slot.endTime||""}
+                            onChange={(e) => updateTimeSlot(index, 'endTime', e.target.value, false)}
+                          />
+                          {(exceptionForm.timeSlots || []).length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeTimeSlot(index, false)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addTimeSlot(false)}
+                        className="flex items-center gap-2 text-primary hover:text-primary-dark"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Time Slot
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Reason (Optional)
+                  </label>
+                  <textarea
+                    className="form-input"
+                    value={exceptionForm.reason}
+                    onChange={(e) => setExceptionForm({ ...exceptionForm, reason: e.target.value })}
+                    placeholder="Reason for this exception..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExceptionForm(false);
+                    setEditingException(null);
+                    resetExceptionForm();
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveException}
+                  className="btn-primary"
+                  disabled={loading || !exceptionForm.date}
+                >
+                  {loading ? 'Saving...' : editingException ? 'Update' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
 };
 
-export default DoctorSettings; 
+export default DoctorSettings;

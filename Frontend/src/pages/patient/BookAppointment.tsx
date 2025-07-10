@@ -29,21 +29,24 @@ const BookAppointment = ({ patientId = 1 }) => {
   const [reasonForVisit, setReasonForVisit] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [allSlotsData, setAllSlotsData] = useState({});
 
-  const timeSlots = [
-    "09:00 AM",
-    "09:30 AM",
-    "10:00 AM",
-    "10:30 AM",
-    "11:00 AM",
-    "11:30 AM",
-    "02:00 PM",
-    "02:30 PM",
-    "03:00 PM",
-    "03:30 PM",
-    "04:00 PM",
-    "04:30 PM",
-  ];
+  // const timeSlots = [
+  //   "09:00 AM",
+  //   "09:30 AM",
+  //   "10:00 AM",
+  //   "10:30 AM",
+  //   "11:00 AM",
+  //   "11:30 AM",
+  //   "02:00 PM",
+  //   "02:30 PM",
+  //   "03:00 PM",
+  //   "03:30 PM",
+  //   "04:00 PM",
+  //   "04:30 PM",
+  // ];
 
   const specialties = [
     "All Specialties",
@@ -155,31 +158,123 @@ const BookAppointment = ({ patientId = 1 }) => {
     setFilteredDoctors(filtered);
   }, [searchTerm, selectedSpecialty, doctors]);
 
-  const handleBookAppointment = (doctor) => {
-    console.log("Selected doctor:", doctor);
-    setSelectedDoctor(doctor);
-    setIsModalOpen(true);
-    setBookingSuccess(false);
+  
+
+  // Updated handleBookAppointment function
+  const handleBookAppointment = async (doctor) => {
+    try {
+      console.log("Selected doctor:", doctor);
+      
+      setSelectedDoctor(doctor);
+      setIsModalOpen(true);
+      setBookingSuccess(false);
+      
+      // Reset previous selections
+      setSelectedDate('');
+      setSelectedTime('');
+      setTimeSlots([]);
+
+      // Add date parameters - you can adjust these as needed
+      const startDate = new Date().toISOString().split('T')[0]; // Today
+      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 30 days from now
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/doctor-availability/public/doctor/${doctor.id}/slots?startDate=${startDate}&endDate=${endDate}`,
+        {
+          method: "GET",
+          // Remove credentials for public endpoint
+          credentials: "include"
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = "Failed to get slots";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Parse JSON only once
+      const slotsData = await response.json();
+      console.log("Slots data:", slotsData);
+
+      // Group slots by date and collect available dates
+      const slotsByDate = {};
+      slotsData.forEach(slot => {
+        const date = slot.slotDate; // Assuming the slot has a date field
+        if (!slotsByDate[date]) {
+          slotsByDate[date] = [];
+        }
+        slotsByDate[date].push(slot);
+      });
+      console.log("Slots by date: ",slotsByDate)
+
+      // Set available dates (only dates that have slots)
+      const availableDates = Object.keys(slotsByDate).sort();
+      setAvailableDates(availableDates);
+      
+      // Store all slots data for later use
+      setAllSlotsData(slotsByDate);
+
+      console.log("Available dates:", availableDates);
+
+    } catch (error) {
+      console.error("Error booking appointment:", error);
+      // Handle error appropriately - maybe show a toast or alert
+      alert(`Error: ${error.message}`);
+    }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedDoctor(null);
-    setSelectedDate("");
-    setSelectedTime("");
-    setAppointmentType(""); // Reset appointment type
-    setReasonForVisit("");
-    setBookingSuccess(false);
+  // New function to handle date selection and load time slots
+  const handleDateSelection = (selectedDate) => {
+    setSelectedDate(selectedDate);
+    setSelectedTime(''); // Reset selected time
+    
+    if (selectedDate && allSlotsData[selectedDate]) {
+      // Format time slots for the selected date
+      const formattedSlots = allSlotsData[selectedDate].map(slot => {
+        const start = slot.startTime ? slot.startTime.substring(0, 5) : 'N/A';
+        const end = slot.endTime ? slot.endTime.substring(0, 5) : 'N/A';
+        return {
+          display: `${start} - ${end}`,
+          value: start, // Use start time as value
+          slotId: slot.id // Store slot ID for booking
+        };
+      });
+      
+      setTimeSlots(formattedSlots);
+    } else {
+      setTimeSlots([]);
+    }
   };
 
+  // Updated handleSubmitBooking function
   const handleSubmitBooking = async () => {
     setIsSubmitting(true);
 
     try {
-      // Convert 12-hour AM/PM time to 24-hour format
+      // Find the selected slot data
+      const selectedSlotData = timeSlots.find(slot => 
+        slot.value === selectedTime || slot.display === selectedTime
+      );
+
+      if (!selectedSlotData) {
+        throw new Error("Please select a valid time slot");
+      }
+
+      // Convert 12-hour AM/PM time to 24-hour format (if needed)
       const convertTo24HourFormat = (time12h) => {
+        // Check if time is already in 24-hour format
+        if (!time12h.includes("AM") && !time12h.includes("PM")) {
+          return time12h;
+        }
+        
         const [time, modifier] = time12h.split(" ");
-        // Corrected lines to resolve the "prefer-const" ESLint warning
         const [initialHours, minutes] = time.split(":");
         let hours = initialHours;
 
@@ -200,13 +295,14 @@ const BookAppointment = ({ patientId = 1 }) => {
         patientId: 70,
         doctorId: selectedDoctor.id,
         appointmentDate: selectedDate,
-        appointmentTime: formattedTime, // Use the correctly formatted time
+        appointmentTime: formattedTime,
         type: appointmentType,
         reason: reasonForVisit,
+        slotId: selectedSlotData.slotId // Include slot ID if needed
       };
 
       const response = await fetch(
-        `${ API_BASE_URL }/api/appointments/request`,
+        `${API_BASE_URL}/api/appointments/request`,
         {
           method: "POST",
           headers: {
@@ -220,7 +316,8 @@ const BookAppointment = ({ patientId = 1 }) => {
       console.log("Submitting booking:", appointmentData);
 
       if (!response.ok) {
-        throw new Error("Failed to book appointment");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to book appointment");
       }
 
       const result = await response.json();
@@ -232,10 +329,32 @@ const BookAppointment = ({ patientId = 1 }) => {
       }, 2000);
     } catch (error) {
       console.error("Error booking appointment:", error);
-      // You might want to show an error message to the user here
+      alert(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper function to check if a date is available
+  const isDateAvailable = (date) => {
+    return availableDates.includes(date);
+  };
+
+  // Helper function to get minimum selectable date
+  const getMinSelectableDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDoctor(null);
+    setSelectedDate("");
+    setSelectedTime("");
+    setAppointmentType(""); // Reset appointment type
+    setReasonForVisit("");
+    setBookingSuccess(false);
   };
 
   const renderStars = (rating) => {
@@ -499,32 +618,50 @@ const BookAppointment = ({ patientId = 1 }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Select Date
                         </label>
-                        <input
-                          type="date"
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={selectedDate}
-                          onChange={(e) => setSelectedDate(e.target.value)}
-                          min={getTomorrowDate()}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Select Time
-                        </label>
                         <select
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={selectedTime}
-                          onChange={(e) => setSelectedTime(e.target.value)}
+                          value={selectedDate}
+                          onChange={(e) => handleDateSelection(e.target.value)}
                         >
-                          <option value="">Choose a time slot</option>
-                          {timeSlots.map((time) => (
-                            <option key={time} value={time}>
-                              {time}
+                          <option value="">Select a date</option>
+                          {availableDates.map(date => (
+                            <option key={date} value={date}>
+                              {new Date(date).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}
                             </option>
                           ))}
                         </select>
                       </div>
+
+                      {selectedDate && timeSlots.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Select Time
+                          </label>
+                          <select
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            value={selectedTime}
+                            onChange={(e) => setSelectedTime(e.target.value)}
+                          >
+                            <option value="">Select a time</option>
+                            {timeSlots.map((slot, index) => (
+                              <option key={index} value={slot.value}>
+                                {slot.display}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {selectedDate && timeSlots.length === 0 && (
+                        <div className="text-center py-4">
+                          <p className="text-gray-500">No available time slots for the selected date</p>
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">

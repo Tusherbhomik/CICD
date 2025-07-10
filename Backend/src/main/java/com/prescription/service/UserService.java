@@ -1,4 +1,6 @@
 package com.prescription.service;
+import com.prescription.entity.AppointmentSettings;
+import com.prescription.repository.AppointmentSettingsRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
@@ -13,6 +15,7 @@ import com.prescription.repository.PatientRepository;
 import com.prescription.repository.UserRepository;
 import com.prescription.util.JwtUtil;
 import jakarta.validation.Valid;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,6 +41,8 @@ public class UserService {
     private DoctorRepository doctorRepository;
     @Autowired
     private PatientRepository patientRepository;
+    @Autowired
+    private AppointmentSettingsRepository appointmentSettingsRepository;
 
     public LoginResponse authenticate(LoginRequest loginRequest) {
         Optional<User> userOpt = userRepository.findByEmail(loginRequest.getEmail());
@@ -96,8 +101,16 @@ public class UserService {
             doctor.setInstitute("NOT_SET");
             doctor.setCreatedAt(LocalDateTime.now());
             doctor.setUpdatedAt(LocalDateTime.now());
-
             doctorRepository.save(doctor);
+
+            AppointmentSettings appointmentSettings = new AppointmentSettings();
+            appointmentSettings.setDoctor(savedUser);
+            appointmentSettings.setAutoApprove(true);
+            appointmentSettings.setAllowOverbooking(true);
+            appointmentSettings.setSlotDurationMinutes(30);
+            appointmentSettings.setBufferTimeMinutes(0);
+            appointmentSettings.setAdvanceBookingDays(30);
+            appointmentSettingsRepository.save(appointmentSettings);
         } else if (savedUser.getRole() == User.Role.PATIENT) {
              Patient patient = new Patient();
             patient.setUser(savedUser);
