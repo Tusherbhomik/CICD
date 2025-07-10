@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { API_BASE_URL } from '@/url';
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Save, User, Mail, Phone, Camera, Upload, Trash2, Heart } from "lucide-react";
+import { ArrowLeft, Save, User, Mail, Phone, Camera, Upload, Trash2, Heart } from "lucide-react"; // Changed Trashsects to Trash2
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -220,7 +220,6 @@ const EditProfile = () => {
     setIsImageLoading(true);
     const formData = new FormData();
     formData.append('file', file);
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/profile/image/upload`, {
         method: "POST",
@@ -356,6 +355,13 @@ const EditProfile = () => {
     fileInputRef.current?.click();
   };
 
+  // Prevent form submission on Enter key press
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
+  };
+
   useEffect(() => {
     fetchPatientProfile();
   }, []);
@@ -474,6 +480,7 @@ const EditProfile = () => {
                     type="text"
                     value={formData.name}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your full name"
                     className="pl-10"
                     required
@@ -494,6 +501,7 @@ const EditProfile = () => {
                     type="email"
                     value={formData.email}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your email address"
                     className="pl-10"
                     required
@@ -514,6 +522,7 @@ const EditProfile = () => {
                     type="tel"
                     value={formData.phone}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your phone number"
                     className="pl-10"
                   />
@@ -532,6 +541,7 @@ const EditProfile = () => {
                   type="number"
                   value={formData.heightCm}
                   onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
                   placeholder="Enter your height in centimeters"
                   className="pl-10"
                   min="0"
@@ -550,6 +560,7 @@ const EditProfile = () => {
                   type="number"
                   value={formData.weightKg}
                   onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
                   placeholder="Enter your weight in kg"
                   className="pl-10"
                   min="0"

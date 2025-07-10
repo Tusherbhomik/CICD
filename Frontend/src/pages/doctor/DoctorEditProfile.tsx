@@ -65,9 +65,13 @@ const EditProfile = () => {
       if (!response.ok) {
         throw new Error("Failed to fetch doctor profile");
       }
-      const data: DoctorData = await response.json();
+      let data: DoctorData;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        throw new Error("Invalid response format from server");
+      }
       setDoctorData(data);
-      
       setFormData({
         name: data.name || "",
         email: data.email || "",
@@ -76,7 +80,6 @@ const EditProfile = () => {
         licenseNumber: data.licenseNumber || "",
         specialization: data.specialization || "",
       });
-      
       if (data.profileImage) {
         setImage(data.profileImage);
       }
@@ -92,18 +95,63 @@ const EditProfile = () => {
     }
   };
 
+  const validateForm = (data: EditFormData) => {
+    const errors: Partial<Record<keyof EditFormData, string>> = {};
+
+    const name = data.name.trim();
+    const email = data.email.trim();
+    const phone = data.phone?.trim();
+    const institute = data.institute.trim();
+    const licenseNumber = data.licenseNumber.trim();
+    const specialization = data.specialization.trim();
+
+    if (!name) {
+      errors.name = "Name is required";
+    }
+
+    if (!email) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "Invalid email format";
+    }
+
+    if (phone && !/^\+?\d{1,4}?[\s-]?(\d{1,4}[\s-]?){1,4}\d{1,4}$/.test(phone)) {
+      errors.phone = "Invalid phone number";
+    }
+
+    if (!institute) {
+      errors.institute = "Institute is required";
+    }
+
+    if (!licenseNumber) {
+      errors.licenseNumber = "License number is required";
+    }
+
+    if (!specialization) {
+      errors.specialization = "Specialization is required";
+    }
+
+    return errors;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateForm(formData);
+    if (Object.keys(errors).length > 0) {
+      Object.values(errors).forEach(error =>
+        toast({ title: "Error", description: error, variant: "destructive" })
+      );
+      return;
+    }
     setIsSubmitting(true);
-    console.log("Data sent from frontend:", formData);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/doctor-update`, {
@@ -116,7 +164,12 @@ const EditProfile = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          throw new Error("Invalid response from server");
+        }
         throw new Error(errorData.message || "Failed to update profile");
       }
 
@@ -138,75 +191,52 @@ const EditProfile = () => {
     }
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!file) return;
-    
-    setIsImageLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to upload image");
-      }
-      
-      const data = await response.json();
-      setImage(data.imageUrl);
-      setShowImageActions(false);
-      
-      toast({
-        title: "Success",
-        description: "Profile image uploaded successfully!",
-      });
-    } catch (err) {
-      console.error("Error uploading image:", err);
+  const handleImageChange = async (file: File, isUpdate: boolean) => {
+    if (!file || !["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
       toast({
         title: "Error",
-        description: "Failed to upload image. Please try again.",
+        description: "Only JPEG, PNG, or GIF images are allowed.",
         variant: "destructive",
       });
-    } finally {
-      setIsImageLoading(false);
+      return;
     }
-  };
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "Image size must be less than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const handleImageUpdate = async (file: File) => {
-    if (!file) return;
-    
     setIsImageLoading(true);
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/update`, {
-        method: "PUT",
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/${isUpdate ? 'update' : 'upload'}`, {
+        method: isUpdate ? "PUT" : "POST",
         credentials: "include",
         body: formData,
       });
-      
+
       if (!response.ok) {
-        throw new Error("Failed to update image");
+        throw new Error(`Failed to ${isUpdate ? 'update' : 'upload'} image`);
       }
-      
+
       const data = await response.json();
       setImage(data.imageUrl);
       setShowImageActions(false);
-      
+
       toast({
         title: "Success",
-        description: "Profile image updated successfully!",
+        description: `Profile image ${isUpdate ? 'updated' : 'uploaded'} successfully!`,
       });
     } catch (err) {
-      console.error("Error updating image:", err);
+      console.error(`Error ${isUpdate ? 'updating' : 'uploading'} image:`, err);
       toast({
         title: "Error",
-        description: "Failed to update image. Please try again.",
+        description: `Failed to ${isUpdate ? 'update' : 'upload'} image. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -225,14 +255,14 @@ const EditProfile = () => {
         method: "DELETE",
         credentials: "include",
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to delete image");
       }
-      
+
       setImage('');
       setShowImageActions(false);
-      
+
       toast({
         title: "Success",
         description: "Profile image removed successfully!",
@@ -252,16 +282,18 @@ const EditProfile = () => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (image) {
-        handleImageUpdate(file);
-      } else {
-        handleImageUpload(file);
-      }
+      handleImageChange(file, !!image);
     }
   };
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
   };
 
   useEffect(() => {
@@ -290,6 +322,7 @@ const EditProfile = () => {
               onClick={() => navigate("/doctor/profile")}
               className="flex items-center gap-2"
             >
+              <ArrowLeft className="w-4 h-4" />
               Back to Profile
             </Button>
             <div>
@@ -309,9 +342,9 @@ const EditProfile = () => {
                   {isImageLoading ? (
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                   ) : image ? (
-                    <img 
-                      src={image} 
-                      alt="Profile" 
+                    <img
+                      src={image}
+                      alt="Profile"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -320,13 +353,14 @@ const EditProfile = () => {
                     </span>
                   )}
                 </div>
-                
+
                 {/* Image Actions Button */}
                 <button
                   type="button"
                   onClick={() => setShowImageActions(!showImageActions)}
                   className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary/90 transition-colors"
                   disabled={isImageLoading}
+                  aria-label={image ? "Update profile picture" : "Upload profile picture"}
                 >
                   <Camera className="w-4 h-4" />
                 </button>
@@ -338,6 +372,7 @@ const EditProfile = () => {
                       type="button"
                       onClick={triggerFileInput}
                       className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      disabled={isImageLoading}
                     >
                       <Upload className="w-4 h-4" />
                       {image ? 'Update Photo' : 'Upload Photo'}
@@ -347,6 +382,7 @@ const EditProfile = () => {
                         type="button"
                         onClick={handleImageDelete}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-red-600 flex items-center gap-2"
+                        disabled={isImageLoading}
                       >
                         <Trash2 className="w-4 h-4" />
                         Remove Photo
@@ -381,6 +417,7 @@ const EditProfile = () => {
                     type="text"
                     value={formData.name}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your full name"
                     className="pl-10"
                     required
@@ -401,6 +438,7 @@ const EditProfile = () => {
                     type="email"
                     value={formData.email}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your email address"
                     className="pl-10"
                     required
@@ -421,6 +459,7 @@ const EditProfile = () => {
                     type="tel"
                     value={formData.phone}
                     onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
                     placeholder="Enter your phone number"
                     className="pl-10"
                   />
@@ -431,49 +470,61 @@ const EditProfile = () => {
               {/* Institute Field */}
               <div className="space-y-2">
                 <Label htmlFor="institute" className="text-sm font-medium">
-                  Institute
+                  Institute *
                 </Label>
-                <Input
-                  id="institute"
-                  name="institute"
-                  type="text"
-                  value={formData.institute}
-                  onChange={handleInputChange}
-                  placeholder="Enter your institute"
-                  className="pl-10"
-                />
+                <div className="relative">
+                  <Input
+                    id="institute"
+                    name="institute"
+                    type="text"
+                    value={formData.institute}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter your institute"
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
 
               {/* License Number Field */}
               <div className="space-y-2">
                 <Label htmlFor="licenseNumber" className="text-sm font-medium">
-                  License Number
+                  License Number *
                 </Label>
-                <Input
-                  id="licenseNumber"
-                  name="licenseNumber"
-                  type="text"
-                  value={formData.licenseNumber}
-                  onChange={handleInputChange}
-                  placeholder="Enter your license number"
-                  className="pl-10"
-                />
+                <div className="relative">
+                  <Input
+                    id="licenseNumber"
+                    name="licenseNumber"
+                    type="text"
+                    value={formData.licenseNumber}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter your license number"
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
 
               {/* Specialization Field */}
               <div className="space-y-2">
                 <Label htmlFor="specialization" className="text-sm font-medium">
-                  Specialization
+                  Specialization *
                 </Label>
-                <Input
-                  id="specialization"
-                  name="specialization"
-                  type="text"
-                  value={formData.specialization}
-                  onChange={handleInputChange}
-                  placeholder="Enter your specialization"
-                  className="pl-10"
-                />
+                <div className="relative">
+                  <Input
+                    id="specialization"
+                    name="specialization"
+                    type="text"
+                    value={formData.specialization}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter your specialization"
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -501,10 +552,9 @@ const EditProfile = () => {
                     className="bg-gray-50 text-gray-500"
                   />
                 </div>
-                
               </div>
               <p className="text-sm text-gray-500 mt-4">
-                Note: Birth date, gender cannot be changed. Contact support if you need to update these fields.
+                Note: Birth date and gender cannot be changed. Contact support if you need to update these fields.
               </p>
             </div>
 
