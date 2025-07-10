@@ -5,6 +5,7 @@ import com.prescription.entity.User;
 import com.prescription.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -169,7 +170,11 @@ class AuthControllerTest {
     @Test
     void testUpdateUserSuccess() throws Exception {
         // Arrange
+<<<<<<< HEAD
         UpdateDoctorRequest updateRequest = new UpdateDoctorRequest();
+=======
+        UpdateUserRequest updateRequest = new UpdateUserRequest();
+>>>>>>> main
         updateRequest.setName("Updated John Doe");
         updateRequest.setEmail("updated@example.com");
         updateRequest.setPhone("9876543210");
@@ -178,7 +183,11 @@ class AuthControllerTest {
         existingUser.setId(1L);
         existingUser.setEmail("test@example.com");
 
+<<<<<<< HEAD
         UpdateDoctorResponse updateResponse = UpdateDoctorResponse.builder()
+=======
+        UpdateUserResponse updateResponse = UpdateUserResponse.builder()
+>>>>>>> main
                 .id(1L)
                 .name("Updated John Doe")
                 .email("updated@example.com")
@@ -190,7 +199,11 @@ class AuthControllerTest {
                 .build();
 
         when(userService.getUserById(anyLong())).thenReturn(Optional.of(existingUser));
+<<<<<<< HEAD
         when(userService.updateUser(any(User.class), any(UpdateDoctorRequest.class)))
+=======
+        when(userService.updateUser(any(User.class), any(UpdateUserRequest.class)))
+>>>>>>> main
                 .thenReturn(updateResponse);
 
         // Act & Assert
@@ -207,13 +220,21 @@ class AuthControllerTest {
                 .andExpect(cookie().value("jwt", "new-jwt-token"));
 
         verify(userService, times(1)).getUserById(1L);
+<<<<<<< HEAD
         verify(userService, times(1)).updateUser(any(User.class), any(UpdateDoctorRequest.class));
+=======
+        verify(userService, times(1)).updateUser(any(User.class), any(UpdateUserRequest.class));
+>>>>>>> main
     }
 
     @Test
     void testUpdateUserFailure_UserNotFound() throws Exception {
         // Arrange
+<<<<<<< HEAD
         UpdateDoctorRequest updateRequest = new UpdateDoctorRequest();
+=======
+        UpdateUserRequest updateRequest = new UpdateUserRequest();
+>>>>>>> main
         updateRequest.setName("Updated John Doe");
         updateRequest.setEmail("updated@example.com");
 
@@ -229,13 +250,21 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Patient not found"));
 
         verify(userService, times(1)).getUserById(1L);
+<<<<<<< HEAD
         verify(userService, never()).updateUser(any(User.class), any(UpdateDoctorRequest.class));
+=======
+        verify(userService, never()).updateUser(any(User.class), any(UpdateUserRequest.class));
+>>>>>>> main
     }
 
     @Test
     void testUpdateUserFailure_ServiceException() throws Exception {
         // Arrange
+<<<<<<< HEAD
         UpdateDoctorRequest updateRequest = new UpdateDoctorRequest();
+=======
+        UpdateUserRequest updateRequest = new UpdateUserRequest();
+>>>>>>> main
         updateRequest.setName("Updated John Doe");
         updateRequest.setEmail("updated@example.com");
 
@@ -243,7 +272,11 @@ class AuthControllerTest {
         existingUser.setId(1L);
 
         when(userService.getUserById(anyLong())).thenReturn(Optional.of(existingUser));
+<<<<<<< HEAD
         when(userService.updateUser(any(User.class), any(UpdateDoctorRequest.class)))
+=======
+        when(userService.updateUser(any(User.class), any(UpdateUserRequest.class)))
+>>>>>>> main
                 .thenThrow(new RuntimeException("Update failed"));
 
         // Act & Assert
@@ -255,20 +288,32 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Update failed"));
 
         verify(userService, times(1)).getUserById(1L);
+<<<<<<< HEAD
         verify(userService, times(1)).updateUser(any(User.class), any(UpdateDoctorRequest.class));
+=======
+        verify(userService, times(1)).updateUser(any(User.class), any(UpdateUserRequest.class));
+>>>>>>> main
     }
 
     @Test
     void testUpdateUserSuccess_NoTokenInResponse() throws Exception {
         // Arrange
+<<<<<<< HEAD
         UpdateDoctorRequest updateRequest = new UpdateDoctorRequest();
+=======
+        UpdateUserRequest updateRequest = new UpdateUserRequest();
+>>>>>>> main
         updateRequest.setName("Updated John Doe");
         updateRequest.setEmail("updated@example.com");
 
         User existingUser = new User();
         existingUser.setId(1L);
 
+<<<<<<< HEAD
         UpdateDoctorResponse updateResponse = UpdateDoctorResponse.builder()
+=======
+        UpdateUserResponse updateResponse = UpdateUserResponse.builder()
+>>>>>>> main
                 .id(1L)
                 .name("Updated John Doe")
                 .email("updated@example.com")
@@ -280,7 +325,11 @@ class AuthControllerTest {
                 .build();
 
         when(userService.getUserById(anyLong())).thenReturn(Optional.of(existingUser));
+<<<<<<< HEAD
         when(userService.updateUser(any(User.class), any(UpdateDoctorRequest.class)))
+=======
+        when(userService.updateUser(any(User.class), any(UpdateUserRequest.class)))
+>>>>>>> main
                 .thenReturn(updateResponse);
 
         // Act & Assert
@@ -294,6 +343,10 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.email").value("updated@example.com"));
 
         verify(userService, times(1)).getUserById(1L);
+<<<<<<< HEAD
         verify(userService, times(1)).updateUser(any(User.class), any(UpdateDoctorRequest.class));
+=======
+        verify(userService, times(1)).updateUser(any(User.class), any(UpdateUserRequest.class));
+>>>>>>> main
     }
 }
