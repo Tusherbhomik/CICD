@@ -23,6 +23,8 @@ public class AuthController {
     @Autowired
     private UserService userService;
 
+
+
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest,
                                               HttpServletResponse response) {
@@ -50,11 +52,6 @@ public class AuthController {
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignUpRequest signUpRequest,
                                           HttpServletResponse response) {
         try {
-            // UserService should:
-            // 1) validate unique email
-            // 2) hash the password
-            // 3) save the user
-            // 4) generate JWT (optional but handy for auto-login)
             SignUpResponse signUpResponse = userService.register(signUpRequest);
 
             // (Optional) immediately log the user in by dropping a JWT cookie
@@ -87,25 +84,27 @@ public class AuthController {
         return ResponseEntity.ok(new MessageResponse("User logged out successfully!"));
     }
 
-    @PutMapping("/update")
-    public ResponseEntity<?> updateUser(
-            @Valid @RequestBody UpdateUserRequest updateUserRequest,
+    @PutMapping("/doctor-update")
+    public ResponseEntity<?> updateDoctor(
+            @Valid @RequestBody UpdateDoctorRequest updateDoctorRequest,
             HttpServletRequest request,
             HttpServletResponse response) {
         try {
+            System.out.println("Received UpdateUserRequest: " + updateDoctorRequest);
             Map<String, Object> response2 = new HashMap<>();
             Optional<User> optionalUser = userService.getUserById((Long) request.getAttribute("userId"));
             if (optionalUser.isEmpty()) {
                 response2.put("success", false);
-                response2.put("message", "Patient not found");
+                response2.put("message", "user not found");
                 return ResponseEntity.badRequest().body(response2);
             }
 
-            UpdateUserResponse updateUserResponse = userService.updateUser(optionalUser.get(), updateUserRequest);
+            UpdateDoctorResponse updateDoctorResponse = userService.updateDoctorUser(optionalUser.get(), updateDoctorRequest);
+            System.out.println("Received UpdateUserResponse: " + updateDoctorResponse);
 
             // Update JWT cookie if token is provided (optional)
-            if (updateUserResponse.getToken() != null) {
-                Cookie jwtCookie = new Cookie("jwt", updateUserResponse.getToken());
+            if (updateDoctorResponse.getToken() != null) {
+                Cookie jwtCookie = new Cookie("jwt", updateDoctorResponse.getToken());
                 jwtCookie.setHttpOnly(true);
                 jwtCookie.setSecure(false); // true in prod (HTTPS)
                 jwtCookie.setPath("/");
@@ -113,7 +112,46 @@ public class AuthController {
                 response.addCookie(jwtCookie);
             }
 
-            return ResponseEntity.ok(updateUserResponse);
+            return ResponseEntity.ok(updateDoctorResponse);
+
+        } catch (RuntimeException ex) {
+            // e.g., "User not found" or validation failure
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(ex.getMessage()));
+        }
+    }
+
+
+
+    @PutMapping("/patient-update")
+    public ResponseEntity<?> updatePatient(
+            @Valid @RequestBody UpdatePatientRequest updatePatientRequest,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        try {
+            System.out.println("Received UpdatePatientRequest: " + updatePatientRequest);
+            Map<String, Object> response2 = new HashMap<>();
+            Optional<User> optionalUser = userService.getUserById((Long) request.getAttribute("userId"));
+            if (optionalUser.isEmpty()) {
+                response2.put("success", false);
+                response2.put("message", "user not found");
+                return ResponseEntity.badRequest().body(response2);
+            }
+
+            UpdatePatientResponse updatePatientResponse = userService.updatePatientUser(optionalUser.get(), updatePatientRequest);
+            System.out.println("Received UpdateUserResponse: " + updatePatientResponse);
+
+            // Update JWT cookie if token is provided (optional)
+            if (updatePatientResponse.getToken() != null) {
+                Cookie jwtCookie = new Cookie("jwt", updatePatientResponse.getToken());
+                jwtCookie.setHttpOnly(true);
+                jwtCookie.setSecure(false); // true in prod (HTTPS)
+                jwtCookie.setPath("/");
+                jwtCookie.setMaxAge(24 * 60 * 60);
+                response.addCookie(jwtCookie);
+            }
+
+            return ResponseEntity.ok(updatePatientResponse);
 
         } catch (RuntimeException ex) {
             // e.g., "User not found" or validation failure

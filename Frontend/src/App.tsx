@@ -17,7 +17,7 @@ import PatientList from "./pages/doctor/PatientList";
 import PatientHistory from "./pages/doctor/PatientHistory";
 import AppointmentSchedule from "./pages/doctor/AppointmentSchedule";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
-import EditDoctorProfile from "./pages/doctor/EditProfile";
+import EditDoctorProfile from "./pages/doctor/DoctorEditProfile";
 import DoctorSettings from "./pages/doctor/DoctorSettings";
 import MedicinesPages from "./pages/doctor/Medicines"; // Added import
 import GenericDetailPage from "./pages/doctor/GenericDetailPage";
@@ -31,6 +31,7 @@ import AppointmentHistory from "./pages/patient/AppointmentHistory";
 import PatientProfile from "./pages/patient/PatientProfile";
 import PatientSettings from "./pages/patient/PatientSettings";
 import MedicalRecords from "./pages/patient/MedicalRecords";
+import PatientEditProfile from "./pages/patient/PatientEditProfile";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
             element={<AppointmentHistory />}
           />
           <Route path="/patient/profile" element={<PatientProfile />} />
+          <Route path="/patient/profile/edit" element={<PatientEditProfile />} />
           <Route path="/patient/settings" element={<PatientSettings />} />
           <Route path="/patient/medical-records" element={<MedicalRecords />} />
           {/* 404 Route */}
