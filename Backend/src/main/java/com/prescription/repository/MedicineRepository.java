@@ -19,6 +19,7 @@ public interface MedicineRepository extends JpaRepository<Medicine, Long> {
 
     List<Medicine> findByMedicineGenericId(Long genericId);
 
+
     @Query("SELECT m FROM Medicine m WHERE LOWER(m.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Medicine> findByNameContainingIgnoreCase(@Param("name") String name);
 }

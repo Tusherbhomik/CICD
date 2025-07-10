@@ -14,8 +14,9 @@ import java.util.Optional;
 public interface MedicineGenericRepository extends JpaRepository<MedicineGeneric, Long> {
 
     @Query("SELECT mg FROM MedicineGeneric mg WHERE " +
-            "LOWER(mg.genericName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+            ":searchTerm IS NULL OR LOWER(mg.genericName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<MedicineGeneric> findByGenericNameContainingIgnoreCase(@Param("searchTerm") String searchTerm);
+
 
     Optional<MedicineGeneric> findByGenericNameIgnoreCase(String genericName);
 

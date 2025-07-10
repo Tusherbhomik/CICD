@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,24 +50,6 @@ public class MedicineService {
             results.add(dto);
         }
 
-//        // Also search for generic medicines if not many results found
-//        if (results.size() < 10) {
-//            List<MedicineGeneric> generics = medicineGenericRepository.findByGenericNameContainingIgnoreCase(trimmedSearchTerm);
-//
-//            for (MedicineGeneric generic : generics) {
-//                // Add all medicines for this generic
-//                List<Medicine> genericMedicines = medicineRepository.findByMedicineGenericId(generic.getId());
-//                for (Medicine medicine : genericMedicines) {
-//                    MedicineSearchDto dto = convertToSearchDto(medicine);
-//                    // Avoid duplicates
-//                    if (!results.stream().anyMatch(r -> r.getId().equals(dto.getId()))) {
-//                        results.add(dto);
-//                    }
-//                }
-//            }
-//        }
-//        System.out.println(results);
-//
         return results;
     }
 
@@ -85,6 +68,35 @@ public class MedicineService {
         }
 
         return convertToSearchDto(medicineOpt.get());
+    }
+
+    public List<MedicineSearchDto> getAllgenerics(String searchTerm) {
+        List<MedicineGeneric> medicineGenerics = medicineGenericRepository.findByGenericNameContainingIgnoreCase(searchTerm);
+        List<MedicineSearchDto> results = new ArrayList<>();
+        for (MedicineGeneric medicineGeneric : medicineGenerics) {
+            MedicineSearchDto dto = convertToGenericsSearchDto(medicineGeneric);
+            results.add(dto);
+        }
+        return results;
+    }
+
+    public MedicineSearchDto convertToGenericsSearchDto(MedicineGeneric genre) {
+        MedicineSearchDto dto = new MedicineSearchDto();
+        dto.setId(genre.getId());
+        dto.setGenericName(genre.getGenericName());
+        dto.setCategory(genre.getCategory());
+        dto.setDescription(genre.getDescription());
+
+        // Fetch medicines for this generic
+        List<Medicine> medicines = medicineRepository.findByMedicineGenericId(genre.getId());
+        List<MedicineSearchDto> medicineDtos = new ArrayList<>();
+        for (Medicine medicine : medicines) {
+            MedicineSearchDto medicineDto = convertToSearchDto(medicine);
+            medicineDtos.add(medicineDto);
+        }
+        dto.setMedicines(medicineDtos);
+
+        return dto;
     }
 
     public MedicineSearchDto convertToSearchDto(Medicine medicine) {

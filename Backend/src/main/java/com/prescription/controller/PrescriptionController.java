@@ -67,6 +67,7 @@ public class PrescriptionController {
             }
 
             List<PrescriptionDto> prescriptions = prescriptionService.getPrescriptionsByPatient(patientId);
+            System.out.println(prescriptions);
             return ResponseEntity.ok(prescriptions);
 
         } catch (Exception e) {
