@@ -180,7 +180,7 @@ const AppointmentSchedule = () => {
       alert("Appointment scheduled successfully!");
     } catch (error) {
       console.error("Error scheduling appointment:", error);
-      alert(`Error scheduling appointment: ${error.message}`);
+      alert(`Error scheduling appointment:`);
     } finally {
       setIsSubmitting(false);
     }
@@ -210,7 +210,7 @@ const AppointmentSchedule = () => {
       alert("Appointment request rejected successfully");
     } catch (error) {
       console.error("Error rejecting appointment:", error);
-      alert(`Error rejecting appointment: ${error.message}`);
+      alert(`Error rejecting appointment: `);
     }
   };
 

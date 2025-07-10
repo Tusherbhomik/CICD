@@ -1,105 +1,38 @@
 import MainLayout from "@/components/layout/MainLayout";
 import { cn } from "@/lib/utils";
 import { API_BASE_URL } from '@/url';
-import { Mail, Phone, MapPin, Calendar, Edit, Award, GraduationCap, Camera, Trash2, Upload } from "lucide-react";
+import { Mail, Phone, Camera, Trash2, Upload, Edit, MapPin, Calendar } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+
+interface DoctorProfileData {
+  id: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  birthDate?: string;
+  gender?: string;
+  profileImage?: string;
+  institute?: string;
+  licenseNumber?: string;
+  specialization?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 const DoctorProfile = () => {
   const [image, setImage] = useState('');
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [showImageActions, setShowImageActions] = useState(false);
-  const [doctorData, setDoctorData] = useState(null);
+  const [doctorInfo, setDoctorInfo] = useState<DoctorProfileData | null>(null); // Renamed to doctorInfo
   const [isLoading, setIsLoading] = useState(true);
-  const fileInputRef = useRef(null);
-
-  // Calculate age from birth date
-  const calculateAge = (birthDate) => {
-    if (!birthDate) return 'N/A';
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  // Default doctor info structure for fallback
-  const defaultDoctorInfo = {
-    name: "Doctor",
-    specialization: "General Medicine",
-    experience: "N/A",
-    education: [
-      {
-        degree: "Medical Degree",
-        institution: "Medical School",
-        year: "N/A",
-      },
-    ],
-    certifications: [
-      {
-        name: "Medical License",
-        issuer: "Medical Board",
-        year: "N/A",
-      },
-    ],
-    contact: {
-      email: "N/A",
-      phone: "N/A",
-      address: "N/A",
-    },
-    availability: {
-      weekdays: "N/A",
-      weekends: "N/A",
-    },
-  };
-
-  // Transform API data to match component structure
-  const transformDoctorData = (data) => {
-    if (!data) return defaultDoctorInfo;
-    
-    const age = calculateAge(data.birthDate);
-    // const experienceYears = age > 25 ? age - 25 : 0; // Estimate experience based on age
-    const experienceYears = 0; // Estimate experience based on age
-    
-    return {
-      name: data.name || "Doctor",
-      specialization: "General Medicine", // Not provided in API response
-      experience: experienceYears > 0 ? `${experienceYears} years` : "N/A",
-      education: [
-        {
-          degree: "Medical Degree",
-          institution: "Medical School",
-          year: "N/A",
-        },
-      ],
-      certifications: [
-        {
-          name: "Medical License",
-          issuer: "Medical Board",
-          year: "N/A",
-        },
-      ],
-      contact: {
-        email: data.email || "N/A",
-        phone: data.phone || "N/A",
-        address: "N/A", // Not provided in API response
-      },
-      availability: {
-        weekdays: "9:00 AM - 5:00 PM", // Default availability
-        weekends: "By Appointment",
-      },
-    };
-  };
-
-  const doctorInfo = transformDoctorData(doctorData);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDoctorProfile = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/patients/profile`, {
+      const response = await fetch(`${API_BASE_URL}/api/doctors/profile`, {
         method: "GET",
         credentials: "include",
       });
@@ -107,9 +40,9 @@ const DoctorProfile = () => {
         throw new Error("Failed to fetch doctor profile");
       }
       const data = await response.json();
-      setDoctorData(data);
+      setDoctorInfo(data);
+      console.log(data); // Log to verify the response
       
-      // Set profile image from API response
       if (data.profileImage) {
         setImage(data.profileImage);
       }
@@ -120,23 +53,7 @@ const DoctorProfile = () => {
     }
   };
 
-  const fetchImage = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/image`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch image");
-      }
-      const data = await response.json();
-      setImage(data.imageUrl);
-    } catch (err) {
-      console.error("Error fetching image:", err);
-    }
-  };
-
-  const handleImageUpload = async (file) => {
+  const handleImageUpload = async (file: File) => {
     if (!file) return;
     
     setIsImageLoading(true);
@@ -157,18 +74,14 @@ const DoctorProfile = () => {
       const data = await response.json();
       setImage(data.imageUrl);
       setShowImageActions(false);
-      
-      // Refresh doctor profile to get updated data
-      fetchDoctorProfile();
     } catch (err) {
       console.error("Error uploading image:", err);
-      alert("Failed to upload image. Please try again.");
     } finally {
       setIsImageLoading(false);
     }
   };
 
-  const handleImageUpdate = async (file) => {
+  const handleImageUpdate = async (file: File) => {
     if (!file) return;
     
     setIsImageLoading(true);
@@ -189,12 +102,8 @@ const DoctorProfile = () => {
       const data = await response.json();
       setImage(data.imageUrl);
       setShowImageActions(false);
-      
-      // Refresh doctor profile to get updated data
-      fetchDoctorProfile();
     } catch (err) {
       console.error("Error updating image:", err);
-      alert("Failed to update image. Please try again.");
     } finally {
       setIsImageLoading(false);
     }
@@ -218,21 +127,16 @@ const DoctorProfile = () => {
       
       setImage('');
       setShowImageActions(false);
-      
-      // Refresh doctor profile to get updated data
-      fetchDoctorProfile();
     } catch (err) {
       console.error("Error deleting image:", err);
-      alert("Failed to remove image. Please try again.");
     } finally {
       setIsImageLoading(false);
     }
   };
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
-      // Check if image already exists, update or upload accordingly
       if (image) {
         handleImageUpdate(file);
       } else {
@@ -263,18 +167,16 @@ const DoctorProfile = () => {
               <h1 className="page-title">Doctor Profile</h1>
               <p className="text-gray-600">View and manage your professional information</p>
             </div>
-            <button className="btn-primary flex items-center gap-2">
+              
+            <Link
+              to="/doctor/profile/edit"
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+              )}
+            >
               <Edit className="w-5 h-5" />
-              <Link
-                to="/doctor/profile/edit"
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
-                )}
-              >
-                <Edit className="w-5 h-5" />
-                <span>Edit Profile</span>
-              </Link>
-            </button>
+              <span>Edit Profile</span>
+            </Link>
           </div>
 
           {/* Profile Overview */}
@@ -295,7 +197,7 @@ const DoctorProfile = () => {
                         />
                       ) : (
                         <span className="text-3xl text-primary font-medium">
-                          {doctorInfo.name.charAt(0)}
+                          {doctorInfo?.name?.charAt(0) || 'D'}
                         </span>
                       )}
                     </div>
@@ -333,10 +235,10 @@ const DoctorProfile = () => {
                   </div>
 
                   <div>
-                    <h2 className="text-2xl font-semibold">{doctorInfo.name}</h2>
+                    <h2 className="text-2xl font-semibold">{doctorInfo?.name || 'Doctor'}</h2>
                     <div className="flex gap-4 text-sm text-gray-600 mt-1">
-                      <span>{doctorInfo.specialization}</span>
-                      <span>{doctorInfo.experience} experience</span>
+                      <span>{doctorInfo?.specialization || 'N/A'}</span>
+                      <span>License: {doctorInfo?.licenseNumber || 'N/A'}</span>
                     </div>
                   </div>
                 </div>
@@ -344,123 +246,66 @@ const DoctorProfile = () => {
                 <div className="mt-8 space-y-4">
                   <div className="flex items-center gap-3 text-gray-600">
                     <Mail className="w-5 h-5" />
-                    <span>{doctorInfo.contact.email}</span>
+                    <span>{doctorInfo?.email || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-gray-600">
                     <Phone className="w-5 h-5" />
-                    <span>{doctorInfo.contact.phone}</span>
+                    <span>{doctorInfo?.phone || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-gray-600">
                     <MapPin className="w-5 h-5" />
-                    <span>{doctorInfo.contact.address}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Availability */}
-              <div className="md:w-80">
-                <h3 className="text-lg font-semibold mb-4">Availability</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-gray-600">
-                    <Calendar className="w-5 h-5" />
-                    <div>
-                      <p className="font-medium">Weekdays</p>
-                      <p className="text-sm">{doctorInfo.availability.weekdays}</p>
-                    </div>
+                    <span>Institute: {doctorInfo?.institute || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-3 text-gray-600">
-                    <Calendar className="w-5 h-5" />
-                    <div>
-                      <p className="font-medium">Weekends</p>
-                      <p className="text-sm">{doctorInfo.availability.weekends}</p>
-                    </div>
+                    <span>Birth Date: {doctorInfo?.birthDate ? new Date(doctorInfo.birthDate).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-gray-600">
+                    <span>Gender: {doctorInfo?.gender || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-gray-600">
+                    <span>Age: {doctorInfo?.birthDate ? new Date().getFullYear() - new Date(doctorInfo.birthDate).getFullYear() : 'N/A'}</span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Education */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold">Education</h2>
+            {/* Bio Section */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4">Bio</h3>
+              <p className="text-gray-600">
+                {doctorInfo?.name ? `${doctorInfo.name} is a dedicated ${doctorInfo.specialization} specialist with extensive experience at ${doctorInfo.institute}.` : 'Bio not available.'}
+              </p>
             </div>
 
-            <div className="space-y-4">
-              {doctorInfo.education.map((edu, index) => (
-                <div key={index} className="flex items-start gap-4">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
+            {/* Certifications Section */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4">Certifications</h3>
+              <div className="text-gray-600">
+                <p>License Number: {doctorInfo?.licenseNumber || 'N/A'}</p>
+                <p>Certified in {doctorInfo?.specialization || 'N/A'} since 2020</p>
+              </div>
+            </div>
+
+            {/* Availability Section */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold mb-4">Availability</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-gray-600">
+                  <Calendar className="w-5 h-5" />
                   <div>
-                    <h4 className="font-medium">{edu.degree}</h4>
-                    <p className="text-sm text-gray-600">{edu.institution}</p>
-                    <p className="text-sm text-gray-500">{edu.year}</p>
+                    <p className="font-medium">Weekdays</p>
+                    <p>9:00 AM - 5:00 PM (Based on schedule)</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Certifications */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Award className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold">Certifications</h2>
-            </div>
-
-            <div className="space-y-4">
-              {doctorInfo.certifications.map((cert, index) => (
-                <div key={index} className="flex items-start gap-4">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
+                <div className="flex items-center gap-3 text-gray-600">
+                  <Calendar className="w-5 h-5" />
                   <div>
-                    <h4 className="font-medium">{cert.name}</h4>
-                    <p className="text-sm text-gray-600">{cert.issuer}</p>
-                    <p className="text-sm text-gray-500">Issued: {cert.year}</p>
+                    <p className="font-medium">Weekends</p>
+                    <p>By appointment only</p>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="card hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-medium">Manage Schedule</h4>
-                  <p className="text-sm text-gray-600">Update your availability</p>
-                </div>
-              </div>
-            </button>
-            <button className="card hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Award className="w-5 h-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-medium">Add Certification</h4>
-                  <p className="text-sm text-gray-600">Update your credentials</p>
-                </div>
-              </div>
-            </button>
-            <button className="card hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-medium">Update Education</h4>
-                  <p className="text-sm text-gray-600">Add new qualifications</p>
-                </div>
-              </div>
-            </button>
           </div>
 
           {/* Hidden File Input */}

@@ -2,18 +2,20 @@ package com.prescription.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-// Doctor Entity
+@Getter
+@Setter
 @Entity
 @Table(name = "doctors")
 @EntityListeners(AuditingEntityListener.class)
 public class Doctor {
-
     @Id
     @Column(name = "user_id")
     private Long userId;
@@ -43,37 +45,13 @@ public class Doctor {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // Constructors
     public Doctor() {}
 
-    public Doctor(User user, String institute, String specialization, String licenseNumber) {
-        this.user = user;
-        this.userId = user.getId();
+    // KEEP THIS CONSTRUCTOR!
+    public Doctor(Long userId, String institute, String specialization, String licenseNumber) {
+        this.userId = userId;
         this.institute = institute;
         this.specialization = specialization;
         this.licenseNumber = licenseNumber;
     }
-
-    // Getters and Setters
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
-
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-
-    public String getInstitute() { return institute; }
-    public void setInstitute(String institute) { this.institute = institute; }
-
-    public String getSpecialization() { return specialization; }
-    public void setSpecialization(String specialization) { this.specialization = specialization; }
-
-    public String getLicenseNumber() { return licenseNumber; }
-    public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
-
