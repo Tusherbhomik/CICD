@@ -95,22 +95,23 @@ const MedicineDropdownCard = ({
 
   return (
     <div
-      className={`border-b border-gray-100 last:border-b-0 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
+      className={`border-b border-gray-100 last:border-b-0 transition-all duration-200 ${
         isSelected ? "bg-blue-50" : ""
       }`}
-      onClick={onClick}
     >
-      {/* Header - Always Visible */}
-      <div className="p-4">
+      {/* Header - Clickable for Selection */}
+      <div
+        className="p-4 cursor-pointer hover:bg-gray-50"
+        onClick={onClick} // Medicine selection only on header click
+      >
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <Pill className="text-blue-600" size={18} />
-              <h3 className="font-semibold text-gray-900 text-base">
+              <h3 className="font-semibold text-red-900 text-base">
                 {medicine.name}
               </h3>
             </div>
-
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-500">Manufacturer:</span>
@@ -126,19 +127,19 @@ const MedicineDropdownCard = ({
               </div>
             </div>
           </div>
-
           <button
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation(); // Prevent triggering parent onClick
               setIsExpanded(!isExpanded);
             }}
             className="ml-4 p-1 hover:bg-gray-200 rounded transition-colors"
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? "Collapse medicine details" : "Expand medicine details"}
           >
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
-
-        {/* Quick Preview - Always Visible */}
+        {/* Quick Preview */}
         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
           <div className="flex items-center gap-2 mb-1">
             <Info size={14} className="text-blue-600" />
@@ -150,9 +151,12 @@ const MedicineDropdownCard = ({
         </div>
       </div>
 
-      {/* Expanded Details */}
+      {/* Expanded Details - Not Clickable for Selection */}
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-gray-100 bg-white">
+        <div
+          className="px-4 pb-4 border-t border-gray-100 bg-white"
+          onClick={(e) => e.stopPropagation()} // Prevent clicks from selecting medicine
+        >
           <div className="pt-4 space-y-1">
             <InfoSection
               icon={User}
@@ -160,14 +164,12 @@ const MedicineDropdownCard = ({
               content={description.adultDose}
               colorClass="text-green-600"
             />
-
             <InfoSection
               icon={AlertTriangle}
               title="Contraindications"
               content={description.contraindications}
               colorClass="text-red-500"
             />
-
             <InfoSection
               icon={Zap}
               title="Side Effects"

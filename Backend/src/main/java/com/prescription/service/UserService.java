@@ -1,5 +1,9 @@
 package com.prescription.service;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import com.prescription.dto.*;
 import com.prescription.entity.Doctor;
 import com.prescription.entity.Patient;
@@ -14,10 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -34,6 +36,8 @@ public class UserService {
     private JwtUtil jwtUtil;
     @Autowired
     private DoctorRepository doctorRepository;
+    @Autowired
+    private PatientRepository patientRepository;
 
     public LoginResponse authenticate(LoginRequest loginRequest) {
         Optional<User> userOpt = userRepository.findByEmail(loginRequest.getEmail());
@@ -81,22 +85,44 @@ public class UserService {
                 .build();
 
         // 3) save
-        User saved = userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        //tusher  added
+        if (savedUser.getRole() == User.Role.DOCTOR) {
+            Doctor doctor = new Doctor();
+            doctor.setUser(savedUser);
+            doctor.setLicenseNumber("NOT_SET");
+            doctor.setSpecialization("GENERAL");
+            doctor.setInstitute("NOT_SET");
+            doctor.setCreatedAt(LocalDateTime.now());
+            doctor.setUpdatedAt(LocalDateTime.now());
+
+            doctorRepository.save(doctor);
+        } else if (savedUser.getRole() == User.Role.PATIENT) {
+             Patient patient = new Patient();
+            patient.setUser(savedUser);
+            patient.setHeightCm(BigDecimal.ZERO);
+            patient.setWeightKg(BigDecimal.ZERO);
+            patient.setBloodType(Patient.BloodType.UNKNOWN);
+            patient.setCreatedAt(LocalDateTime.now());
+            patient.setUpdatedAt(LocalDateTime.now());
+            patientRepository.save(patient);
+        }
 
         // 4) create JWT (optional but handy for auto-login)
         String token = jwtUtil.generateToken(
-                saved.getEmail(),
-                saved.getRole().name(),
-                saved.getId()
+                savedUser.getEmail(),
+                savedUser.getRole().name(),
+                savedUser.getId()
         );
 
         // 5) build response
         return SignUpResponse.builder()
-                .id(saved.getId())
-                .name(saved.getName())
-                .email(saved.getEmail())
-                .role(saved.getRole())
-                .token(token)               // may be null if you skip auto-login
+                .id(savedUser.getId())
+                .name(savedUser.getName())
+                .email(savedUser.getEmail())
+                .role(savedUser.getRole())
+                .token(token)
                 .build();
     }
 
@@ -131,52 +157,7 @@ public class UserService {
         return dto;
     }
 
-    public UpdateUserResponse updateUser(User user, @Valid UpdateUserRequest req) {
 
-        // 2) Update allowed fields
-        user.setName(req.getName() != null ? req.getName() : user.getName());
-        user.setPhone(req.getPhone() != null ? req.getPhone() : user.getPhone());
-//        user.setBirthDate(req.getBirthDate() != null ? req.getBirthDate() : user.getBirthDate());
-//        user.setGender(req.getGender() != null ? req.getGender() : user.getGender());
-//        User.Gender gender = Objects.equals(req.getGender(), "MALE") ? User.Gender.MALE : (Objects.equals(req.getGender(), "FEMALE") ?User.Gender.FEMALE:User.Gender.OTHER);
-//        user.setGender(gender);
-
-        // 3) Save updated user
-        User updated = userRepository.save(user);
-
-        // 4) Generate new JWT (optional, only if email or role changes affect token)
-        String token = null;
-        if (req.getEmail() != null && !req.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(req.getEmail())) {
-                throw new RuntimeException("Email already exists: " + req.getEmail());
-            }
-            user.setEmail(req.getEmail());
-            token = jwtUtil.generateToken(
-                    updated.getEmail(),
-                    updated.getRole().name(),
-                    updated.getId()
-            );
-        }
-
-        // 5) Build response
-        return UpdateUserResponse.builder()
-                .id(updated.getId())
-                .name(updated.getName())
-                .email(updated.getEmail())
-                .phone(updated.getPhone())
-                .birthDate(updated.getBirthDate())
-//                .gender(gender.toString())
-                .role(updated.getRole().toString())
-                .token(token) // may be null if no new token was generated
-                .build();
-    }
-
-
-
-    @Autowired
-    private PatientRepository patientRepository;
-
-    // Add these methods to your UserService class
     public List<UserDto> getAllPatients() {
         // Get all users with PATIENT role
         List<User> patientUsers = userRepository.findAllPatients();
@@ -294,6 +275,130 @@ public class UserService {
                 .doctorCreatedAt(doctor.getCreatedAt())
                 .doctorUpdatedAt(doctor.getUpdatedAt())
                 .build();
+    }
+
+
+    @Transactional
+    public UpdateDoctorResponse updateDoctorUser(User user, @Valid UpdateDoctorRequest req) {
+        if (!user.getRole().equals(User.Role.DOCTOR)) {
+            throw new RuntimeException("Only doctors can update doctor-specific fields");
+        }
+
+        user.setName(req.getName() != null ? req.getName() : user.getName());
+        user.setPhone(req.getPhone() != null ? req.getPhone() : user.getPhone());
+
+        boolean emailChanged = false;
+        if (req.getEmail() != null && !req.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(req.getEmail())) {
+                throw new RuntimeException("Email already exists: " + req.getEmail());
+            }
+            user.setEmail(req.getEmail());
+            emailChanged = true;
+        }
+
+        User updatedUser = userRepository.saveAndFlush(user);
+
+        Doctor doctor = doctorRepository.findByUserId(updatedUser.getId()).orElseGet(() -> {
+            Doctor newDoctor = new Doctor(updatedUser.getId(),
+                    req.getInstitute() != null ? req.getInstitute() : "N/A",
+                    req.getSpecialization() != null ? req.getSpecialization() : "N/A",
+                    req.getLicenseNumber() != null ? req.getLicenseNumber() : "TEMP_LIC");
+            newDoctor.setCreatedAt(LocalDateTime.now());
+            newDoctor.setUpdatedAt(LocalDateTime.now());
+            return newDoctor;
+        });
+
+        doctor.setInstitute(req.getInstitute() != null ? req.getInstitute() : doctor.getInstitute());
+        doctor.setLicenseNumber(req.getLicenseNumber() != null ? req.getLicenseNumber() : doctor.getLicenseNumber());
+        doctor.setSpecialization(req.getSpecialization() != null ? req.getSpecialization() : doctor.getSpecialization());
+        doctor.setUpdatedAt(LocalDateTime.now());
+
+        Doctor savedDoctor = doctorRepository.save(doctor);
+//        System.out.println("Doctor saved: " + savedDoctor);
+
+        String token = emailChanged ? jwtUtil.generateToken(updatedUser.getEmail(), updatedUser.getRole().name(), updatedUser.getId()) : null;
+
+        return UpdateDoctorResponse.builder()
+                .id(updatedUser.getId())
+                .name(updatedUser.getName())
+                .email(updatedUser.getEmail())
+                .phone(updatedUser.getPhone())
+                .birthDate(updatedUser.getBirthDate())
+                .gender(updatedUser.getGender().toString())
+                .role(updatedUser.getRole().toString())
+                .institute(savedDoctor.getInstitute())
+                .licenseNumber(savedDoctor.getLicenseNumber())
+                .specialization(savedDoctor.getSpecialization())
+                .createdAt(savedDoctor.getCreatedAt())
+                .updatedAt(savedDoctor.getUpdatedAt())
+                .token(token)
+                .build();
+    }
+
+    @Transactional
+    public UpdatePatientResponse updatePatientUser(User user, @Valid UpdatePatientRequest req) {
+        if (!user.getRole().equals(User.Role.PATIENT)) {
+            throw new RuntimeException("Only patients can update patient-specific fields");
+        }
+
+        user.setName(req.getName() != null ? req.getName() : user.getName());
+        user.setPhone(req.getPhone() != null ? req.getPhone() : user.getPhone());
+
+        boolean emailChanged = false;
+        if (req.getEmail() != null && !req.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(req.getEmail())) {
+                throw new RuntimeException("Email already exists: " + req.getEmail());
+            }
+            user.setEmail(req.getEmail());
+            emailChanged = true;
+        }
+
+        User updatedUser = userRepository.saveAndFlush(user);
+
+        Patient patient = patientRepository.findByUserId(updatedUser.getId()).orElseGet(() -> {
+            Patient newPatient = new Patient(updatedUser.getId(),
+                    req.getHeightCm() != null ? req.getHeightCm() : BigDecimal.ZERO,
+                    req.getWeightKg() != null ? req.getWeightKg() : BigDecimal.ZERO,
+                    req.getBloodType() != null ? mapToBloodType(req.getBloodType()) : Patient.BloodType.UNKNOWN);
+            newPatient.setCreatedAt(LocalDateTime.now());
+            newPatient.setUpdatedAt(LocalDateTime.now());
+            return newPatient;
+        });
+
+        patient.setHeightCm(req.getHeightCm() != null ? req.getHeightCm() : patient.getHeightCm());
+        patient.setWeightKg(req.getWeightKg() != null ? req.getWeightKg() : patient.getWeightKg());
+        patient.setBloodType(req.getBloodType() != null ? mapToBloodType(req.getBloodType()) : patient.getBloodType());
+        patient.setUpdatedAt(LocalDateTime.now());
+
+        Patient savedPatient = patientRepository.save(patient);
+//    System.out.println("Patient saved: " + savedPatient);
+
+        String token = emailChanged ? jwtUtil.generateToken(updatedUser.getEmail(), updatedUser.getRole().name(), updatedUser.getId()) : null;
+
+        return UpdatePatientResponse.builder()
+                .id(updatedUser.getId())
+                .name(updatedUser.getName())
+                .email(updatedUser.getEmail())
+                .phone(updatedUser.getPhone())
+                .birthDate(updatedUser.getBirthDate())
+                .gender(updatedUser.getGender().toString())
+                .role(updatedUser.getRole().toString())
+                .heightCm(savedPatient.getHeightCm())
+                .weightKg(savedPatient.getWeightKg())
+                .bloodType(savedPatient.getBloodType().toString()) // Return as string for consistency
+                .createdAt(savedPatient.getCreatedAt())
+                .updatedAt(savedPatient.getUpdatedAt())
+                .token(token)
+                .build();
+    }
+    private Patient.BloodType mapToBloodType(String bloodTypeStr) {
+        if (bloodTypeStr == null) return Patient.BloodType.UNKNOWN;
+        try {
+            return Patient.BloodType.valueOf(bloodTypeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // Fallback to UNKNOWN if the string doesn't match any enum value
+            return Patient.BloodType.UNKNOWN;
+        }
     }
 
 }

@@ -2,6 +2,8 @@ package com.prescription.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -9,7 +11,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// Patient Entity
+/**
+ * Entity representing a patient in the prescription system, linked to a User entity.
+ * Includes physical attributes and blood type, with audit timestamps.
+ */
+@Getter
+@Setter
 @Entity
 @Table(name = "patients")
 @EntityListeners(AuditingEntityListener.class)
@@ -24,14 +31,16 @@ public class Patient {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "height_cm")
+    @NotNull
+    @Column(name = "height_cm", nullable = false)
     private BigDecimal heightCm;
 
-    @Column(name = "weight_kg")
+    @NotNull
+    @Column(name = "weight_kg", nullable = false)
     private BigDecimal weightKg;
 
-    @Enumerated(EnumType.STRING)
     @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(name = "blood_type", nullable = false)
     private BloodType bloodType = BloodType.UNKNOWN;
 
@@ -47,69 +56,14 @@ public class Patient {
     public Patient() {
     }
 
-    public Patient(User user) {
-        this.user = user;
-        this.userId = user.getId();
-    }
-
-    // Getters and Setters
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
+    public Patient(Long userId, BigDecimal heightCm, BigDecimal weightKg, BloodType bloodType) {
         this.userId = userId;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public BigDecimal getHeightCm() {
-        return heightCm;
-    }
-
-    public void setHeightCm(BigDecimal heightCm) {
         this.heightCm = heightCm;
-    }
-
-    public BigDecimal getWeightKg() {
-        return weightKg;
-    }
-
-    public void setWeightKg(BigDecimal weightKg) {
         this.weightKg = weightKg;
-    }
-
-    public BloodType getBloodType() {
-        return bloodType;
-    }
-
-    public void setBloodType(BloodType bloodType) {
         this.bloodType = bloodType;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    // Enum
+    // Enum for blood types
     public enum BloodType {
         A_POSITIVE, A_NEGATIVE, B_POSITIVE, B_NEGATIVE,
         AB_POSITIVE, AB_NEGATIVE, O_POSITIVE, O_NEGATIVE, UNKNOWN

@@ -26,7 +26,7 @@ public class MedicineService {
     public List<MedicineSearchDto> searchMedicines(String searchTerm) {
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
             List<Medicine> medicines;
-            System.out.println("yes i am in");
+//            System.out.println("yes i am in");
 
             medicines = medicineRepository.findAll();
             System.out.println(medicines);

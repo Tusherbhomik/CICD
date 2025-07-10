@@ -7,12 +7,17 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Size;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+@Data
 public class AppointmentRequestDTO {
 
+    // Getters and Setters
     @NotNull(message = "Patient ID is required")
     private Long patientId;
 
@@ -46,55 +51,6 @@ public class AppointmentRequestDTO {
         this.appointmentDate = appointmentDate;
         this.appointmentTime = appointmentTime;
         this.type = type;
-        this.reason = reason;
-    }
-
-    // Getters and Setters
-    public Long getPatientId() {
-        return patientId;
-    }
-
-    public void setPatientId(Long patientId) {
-        this.patientId = patientId;
-    }
-
-    public Long getDoctorId() {
-        return doctorId;
-    }
-
-    public void setDoctorId(Long doctorId) {
-        this.doctorId = doctorId;
-    }
-
-    public LocalDate getAppointmentDate() {
-        return appointmentDate;
-    }
-
-    public void setAppointmentDate(LocalDate appointmentDate) {
-        this.appointmentDate = appointmentDate;
-    }
-
-    public LocalTime getAppointmentTime() {
-        return appointmentTime;
-    }
-
-    public void setAppointmentTime(LocalTime appointmentTime) {
-        this.appointmentTime = appointmentTime;
-    }
-
-    public Appointment.Type getType() {
-        return type;
-    }
-
-    public void setType(Appointment.Type type) {
-        this.type = type;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public void setReason(String reason) {
         this.reason = reason;
     }
 
