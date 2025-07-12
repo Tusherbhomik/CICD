@@ -20,22 +20,22 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
-    # - name: Run tests
-    #   run: |
-    #     cd Backend
-    #     mvn clean test
-    #   env:
-    #     SPRING_PROFILES_ACTIVE: test
-    #     SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb
-    #     SPRING_DATASOURCE_USERNAME: sa
-    #     SPRING_DATASOURCE_PASSWORD: password
-    #     SPRING_DATASOURCE_DRIVER: org.h2.Driver
-    #     SPRING_DATASOURCE_DIALECT: org.hibernate.dialect.H2Dialect
-    #     SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
-    #     SPRING_JPA_SHOW_SQL: false
-    #     FIREBASE_KEY: '${{ secrets.FIREBASE_KEY }}$'
-    #     FIREBASE_STORAGE_BUCKET: test-bucket
-    #     JWT_SECRET: ${{ secrets.secrets.JWT_SECRET }}
+    - name: Run tests
+      run: |
+        cd Backend
+        mvn clean test
+      env:
+        SPRING_PROFILES_ACTIVE: test
+        SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb
+        SPRING_DATASOURCE_USERNAME: sa
+        SPRING_DATASOURCE_PASSWORD: password
+        SPRING_DATASOURCE_DRIVER: org.h2.Driver
+        SPRING_DATASOURCE_DIALECT: org.hibernate.dialect.H2Dialect
+        SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+        SPRING_JPA_SHOW_SQL: false
+        FIREBASE_KEY: '${{ secrets.FIREBASE_KEY }}$'
+        FIREBASE_STORAGE_BUCKET: test-bucket
+        JWT_SECRET: ${{ secrets.secrets.JWT_SECRET }}
 
     # 3. Build backend JAR
     - name: Build backend JAR
