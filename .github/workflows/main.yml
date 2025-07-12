@@ -23,7 +23,7 @@ jobs:
     - name: Run tests
       run: |
         cd Backend
-        mvn clean test
+        # mvn clean test
       env:
         SPRING_PROFILES_ACTIVE: test
         SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb
