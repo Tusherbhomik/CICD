@@ -1,6 +1,7 @@
 package com.prescription.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 // Medicine DTOs
 public class MedicineSearchDto {
@@ -13,6 +14,7 @@ public class MedicineSearchDto {
     private String manufacturer;
     private String category;
     private String description; // JSON string
+    private List<MedicineSearchDto> medicines; // Added to hold medicines for generics
 
     // Constructors
     public MedicineSearchDto() {
@@ -101,5 +103,13 @@ public class MedicineSearchDto {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public List<MedicineSearchDto> getMedicines() {
+        return medicines;
+    }
+
+    public void setMedicines(List<MedicineSearchDto> medicines) {
+        this.medicines = medicines;
     }
 }

@@ -19,6 +19,8 @@ import AppointmentSchedule from "./pages/doctor/AppointmentSchedule";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
 import EditDoctorProfile from "./pages/doctor/DoctorEditProfile";
 import DoctorSettings from "./pages/doctor/DoctorSettings";
+import MedicinesPages from "./pages/doctor/Medicines"; // Added import
+import GenericDetailPage from "./pages/doctor/GenericDetailPage";
 
 // Patient Pages
 import PatientDashboard from "./pages/patient/PatientDashboard";
@@ -44,7 +46,6 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
-
           {/* Doctor Routes */}
           <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
           <Route
@@ -57,10 +58,15 @@ const App = () => (
             path="/doctor/appointments"
             element={<AppointmentSchedule />}
           />
+          <Route path="/doctor/medicines" element={<MedicinesPages />} />{" "}
+          {/* Added route */}
+          <Route
+            path="/doctor/medicines/:genericName"
+            element={<GenericDetailPage />}
+          />
           <Route path="/doctor/profile" element={<DoctorProfile />} />
           <Route path="/doctor/profile/edit" element={<EditDoctorProfile />} />
           <Route path="/doctor/settings" element={<DoctorSettings />} />
-
           {/* Patient Routes */}
           <Route path="/patient/dashboard" element={<PatientDashboard />} />
           <Route path="/patient/prescriptions" element={<Prescriptions />} />
@@ -80,7 +86,6 @@ const App = () => (
           <Route path="/patient/profile/edit" element={<PatientEditProfile />} />
           <Route path="/patient/settings" element={<PatientSettings />} />
           <Route path="/patient/medical-records" element={<MedicalRecords />} />
-
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>

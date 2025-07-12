@@ -40,4 +40,16 @@ public class MedicineController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/generics")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<List<MedicineSearchDto>> searchAllGenerics( @RequestParam(name = "q", required = false) String searchTerm) {
+        try {
+            List<MedicineSearchDto> medicine = medicineService.getAllgenerics(searchTerm);
+            System.out.println(medicine);
+            return ResponseEntity.ok(medicine);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }
