@@ -4,8 +4,12 @@ import { useState, useEffect } from "react";
 import { API_BASE_URL } from '@/url';
 
 interface AppointmentSettings {
-  appointmentDuration: number;
-  breakTime: number;
+  id?: number;
+  autoApprove: boolean;
+  allowOverbooking: boolean;
+  slotDurationMinutes: number;
+  advanceBookingDays: number;
+  bufferTimeMinutes: number;
 }
 
 interface TimeSlot {
@@ -33,8 +37,11 @@ interface AvailabilityException {
 
 const DoctorSettings = () => {
   const [settings, setSettings] = useState<AppointmentSettings>({
-    appointmentDuration: 30,
-    breakTime: 10,
+    autoApprove: false,
+    allowOverbooking: false,
+    slotDurationMinutes: 30,
+    advanceBookingDays: 30,
+    bufferTimeMinutes: 5,
   });
   const [templates, setTemplates] = useState<AvailabilityTemplate[]>([]);
   const [exceptions, setExceptions] = useState<AvailabilityException[]>([]);
@@ -68,130 +75,119 @@ const DoctorSettings = () => {
   const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // Fetch all data on mount
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  
   const fetchAllData = async () => {
-      try {
-          setLoading(true);
-          const token = localStorage.getItem("authToken");
+    try {
+      setLoading(true);
+      const doctorId = 1; // TODO: Get actual doctorId from auth context or user profile
+      const token = localStorage.getItem("authToken");
 
-          // Execute all fetches concurrently and await their JSON parsing once
-          const [settingsData, templatesData, exceptionsData] = await Promise.all([
-              fetch(`${API_BASE_URL}/api/doctor-availability/settings`, {
-                  method: "GET",
-                  credentials: "include"
-              }).then(res => {
-                  if (!res.ok) throw new Error("Failed to load settings");
-                  return res.json();
-              }),
-              fetch(`${API_BASE_URL}/api/doctor-availability/templates`, {
-                  method: "GET",
-                  credentials: "include"
-              }).then(res => {
-                  if (!res.ok) throw new Error("Failed to load templates");
-                  return res.json();
-              }),
-              fetch(`${API_BASE_URL}/api/doctor-availability/exceptions`, {
-                  method: "GET",
-                  credentials: "include"
-              }).then(res => {
-                  if (!res.ok) throw new Error("Failed to load exceptions");
-                  return res.json();
-              })
-          ]);
+      const [settingsResponse, templatesResponse, exceptionsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/appointment-settings/doctor/${doctorId}/or-create`, {
+          method: "GET",
+          credentials: "include"
+        }),
+        fetch(`${API_BASE_URL}/api/doctor-availability/templates`, {
+          method: "GET",
+          credentials: "include"
+        }),
+        fetch(`${API_BASE_URL}/api/doctor-availability/exceptions`, {
+          method: "GET",
+          credentials: "include"
+        })
+      ]);
 
-          // --- Start of Template Transformation ---
-          const transformedTemplates: AvailabilityTemplate[] = templatesData.map((apiTemplate: any) => {
-              const dayMap: { [key: number]: string } = {
-                1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY',
-                6: 'SATURDAY', 7: 'SUNDAY',
-              };
+      if (!settingsResponse.ok) throw new Error("Failed to load appointment settings");
+      if (!templatesResponse.ok) throw new Error("Failed to load templates");
+      if (!exceptionsResponse.ok) throw new Error("Failed to load exceptions");
 
-              let mappedDaysOfWeek: string[] = [];
-              if (typeof apiTemplate.daysOfWeek === 'string') {
-                mappedDaysOfWeek = apiTemplate.daysOfWeek
-                  .split(',')
-                  .filter(Boolean)
-                  .map(Number)
-                  .map((numDay: number) => dayMap[numDay] || '');
-              } else if (Array.isArray(apiTemplate.daysOfWeek)) {
-                mappedDaysOfWeek = apiTemplate.daysOfWeek.map((numDay: number) => dayMap[numDay] || '');
-              }
+      const settingsData = await settingsResponse.json();
+      const templatesData = await templatesResponse.json();
+      const exceptionsData = await exceptionsResponse.json();
 
-              // --- FIX IS HERE: Declare templateTimeSlots before the conditional logic ---
-              let templateTimeSlots: TimeSlot[] = [];
-              if (apiTemplate.startTime && apiTemplate.endTime) {
-                  templateTimeSlots.push({
-                      startTime: apiTemplate.startTime.substring(0, 5),
-                      endTime: apiTemplate.endTime.substring(0, 5)
-                  });
-              } else if (Array.isArray(apiTemplate.timeSlots)) {
-                  // If backend does send a timeSlots array in templates, handle it here
-                  templateTimeSlots = apiTemplate.timeSlots.map((slot: any) => ({
-                      startTime: slot.startTime ? slot.startTime.substring(0, 5) : '00:00', // Defensive check
-                      endTime: slot.endTime ? slot.endTime.substring(0, 5) : '00:00'       // Defensive check
-                  }));
-              } else {
-                  // Default if no time data from backend
-                  templateTimeSlots.push({ startTime: '09:00', endTime: '17:00' });
-              }
+      setSettings(settingsData);
 
-              return {
-                id: apiTemplate.id,
-                name: apiTemplate.templateName || '',
-                templateType: apiTemplate.scheduleType || 'DAILY',
-                daysOfWeek: mappedDaysOfWeek,
-                timeSlots: templateTimeSlots, // Now correctly defined and assigned
-                isActive: apiTemplate.isActive ?? true,
-                description: apiTemplate.description || ''
-              };
+      const transformedTemplates: AvailabilityTemplate[] = templatesData.map((apiTemplate: any) => {
+        const dayMap: { [key: number]: string } = {
+          1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY',
+          6: 'SATURDAY', 7: 'SUNDAY',
+        };
+
+        let mappedDaysOfWeek: string[] = [];
+        if (typeof apiTemplate.daysOfWeek === 'string') {
+          mappedDaysOfWeek = apiTemplate.daysOfWeek
+            .split(',')
+            .filter(Boolean)
+            .map(Number)
+            .map((numDay: number) => dayMap[numDay] || '');
+        } else if (Array.isArray(apiTemplate.daysOfWeek)) {
+          mappedDaysOfWeek = apiTemplate.daysOfWeek.map((numDay: number) => dayMap[numDay] || '');
+        }
+
+        let templateTimeSlots: TimeSlot[] = [];
+        if (apiTemplate.startTime && apiTemplate.endTime) {
+          templateTimeSlots.push({
+            startTime: apiTemplate.startTime.substring(0, 5),
+            endTime: apiTemplate.endTime.substring(0, 5)
           });
-          // --- End of Template Transformation ---
+        } else if (Array.isArray(apiTemplate.timeSlots)) {
+          templateTimeSlots = apiTemplate.timeSlots.map((slot: any) => ({
+            startTime: slot.startTime ? slot.startTime.substring(0, 5) : '00:00',
+            endTime: slot.endTime ? slot.endTime.substring(0, 5) : '00:00'
+          }));
+        } else {
+          templateTimeSlots.push({ startTime: '09:00', endTime: '17:00' });
+        }
 
+        return {
+          id: apiTemplate.id,
+          name: apiTemplate.templateName || '',
+          templateType: apiTemplate.scheduleType || 'DAILY',
+          daysOfWeek: mappedDaysOfWeek,
+          timeSlots: templateTimeSlots,
+          isActive: apiTemplate.isActive ?? true,
+          description: apiTemplate.description || ''
+        };
+      });
 
-          // --- Start of Exception Transformation ---
-          const transformedExceptions: AvailabilityException[] = exceptionsData.map((apiException: any) => {
-              let timeSlots: TimeSlot[] = [];
-              if (apiException.exceptionType === 'CUSTOM_HOURS' && apiException.startTime && apiException.endTime) {
-                  const formattedStartTime = apiException.startTime.substring(0, 5);
-                  const formattedEndTime = apiException.endTime.substring(0, 5);
-                  timeSlots.push({ startTime: formattedStartTime, endTime: formattedEndTime });
-              }
+      const transformedExceptions: AvailabilityException[] = exceptionsData.map((apiException: any) => {
+        let timeSlots: TimeSlot[] = [];
+        if (apiException.exceptionType === 'CUSTOM_HOURS' && apiException.startTime && apiException.endTime) {
+          const formattedStartTime = apiException.startTime.substring(0, 5);
+          const formattedEndTime = apiException.endTime.substring(0, 5);
+          timeSlots.push({ startTime: formattedStartTime, endTime: formattedEndTime });
+        }
 
-              return {
-                  id: apiException.id,
-                  date: apiException.exceptionDate || '',
-                  exceptionType: apiException.exceptionType,
-                  timeSlots: timeSlots,
-                  reason: apiException.reason || ''
-              };
-          });
-          // --- End of Exception Transformation ---
+        return {
+          id: apiException.id,
+          date: apiException.exceptionDate || '',
+          exceptionType: apiException.exceptionType,
+          timeSlots: timeSlots,
+          reason: apiException.reason || ''
+        };
+      });
 
-          setSettings(settingsData);
-          setTemplates(transformedTemplates);
-          setExceptions(transformedExceptions);
-
-      } catch (err: any) {
-          console.error("Error fetching data:", err);
-          setError(`Failed to load data: ${err.message}`);
-      } finally {
-          setLoading(false);
-      }
+      setTemplates(transformedTemplates);
+      setExceptions(transformedExceptions);
+    } catch (err: any) {
+      console.error("Error fetching data:", err);
+      setError(`Failed to load data: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Handle settings save
   const handleSaveSettings = async () => {
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
+      const doctorId = 1; // TODO: Get actual doctorId from auth context or user profile
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/doctor-availability/settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/appointment-settings/doctor/${doctorId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json"
@@ -213,26 +209,24 @@ const DoctorSettings = () => {
     }
   };
 
-  // Template management
   const handleSaveTemplate = async () => {
     try {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem("authToken");
 
-      // Transform templateForm to match AvailabilityTemplateDTO
       const payload = {
         id: editingTemplate?.id,
         templateName: templateForm.name,
         scheduleType: templateForm.templateType,
-        startTime: templateForm.timeSlots[0]?.startTime + ':00', // Ensure HH:mm:ss format
-        endTime: templateForm.timeSlots[0]?.endTime + ':00', // Ensure HH:mm:ss format
+        startTime: templateForm.timeSlots[0]?.startTime + ':00',
+        endTime: templateForm.timeSlots[0]?.endTime + ':00',
         daysOfWeek: templateForm.daysOfWeek.map(day => daysOfWeek.indexOf(day) + 1),
-        startDate: templateForm.startDate || null, // Add if needed
-        endDate: templateForm.endDate || null, // Add if needed
-        specificDates: templateForm.specificDates || null, // Add if needed
+        startDate: templateForm.startDate || null,
+        endDate: templateForm.endDate || null,
+        specificDates: templateForm.specificDates || null,
         isActive: templateForm.isActive,
-        priority: templateForm.priority || 1 // Add default priority
+        priority: templateForm.priority || 1
       };
 
       const response = await fetch(
@@ -291,7 +285,6 @@ const DoctorSettings = () => {
     }
   };
 
-  // Exception management
   const handleSaveException = async () => {
     try {
       setLoading(true);
@@ -300,15 +293,14 @@ const DoctorSettings = () => {
 
       const payload = {
         id: editingException?.id,
-        exceptionDate: exceptionForm.date, // Map frontend's date to backend's exceptionDate
+        exceptionDate: exceptionForm.date,
         exceptionType: exceptionForm.exceptionType,
-        // Extract startTime and endTime from the first timeSlot if CUSTOM_HOURS, otherwise null
         startTime: exceptionForm.exceptionType === 'CUSTOM_HOURS' && exceptionForm.timeSlots && exceptionForm.timeSlots.length > 0
-                    ? exceptionForm.timeSlots[0].startTime + ':00' // Append seconds for LocalTime
-                    : null,
+          ? exceptionForm.timeSlots[0].startTime + ':00'
+          : null,
         endTime: exceptionForm.exceptionType === 'CUSTOM_HOURS' && exceptionForm.timeSlots && exceptionForm.timeSlots.length > 0
-                  ? exceptionForm.timeSlots[0].endTime + ':00' // Append seconds for LocalTime
-                  : null,
+          ? exceptionForm.timeSlots[0].endTime + ':00'
+          : null,
         reason: exceptionForm.reason
       };
 
@@ -322,7 +314,7 @@ const DoctorSettings = () => {
             "Content-Type": "application/json"
           },
           credentials: "include",
-          body: JSON.stringify(payload) // Send the transformed payload
+          body: JSON.stringify(payload)
         }
       );
 
@@ -368,7 +360,6 @@ const DoctorSettings = () => {
     }
   };
 
-  // Regenerate slots
   const handleRegenerateSlots = async () => {
     if (!confirm("This will regenerate all your availability slots. Continue?")) return;
 
@@ -397,7 +388,6 @@ const DoctorSettings = () => {
     }
   };
 
-  // Helper functions
   const resetTemplateForm = () => {
     setTemplateForm({
       name: '',
@@ -459,7 +449,6 @@ const DoctorSettings = () => {
   };
 
   const handleDayToggle = (day: string) => {
-    console.log(templateForm)
     const newDays = templateForm.daysOfWeek.includes(day)
       ? templateForm.daysOfWeek.filter(d => d !== day)
       : [...templateForm.daysOfWeek, day];
@@ -467,15 +456,14 @@ const DoctorSettings = () => {
   };
 
   const editTemplate = (template: AvailabilityTemplate) => {
-  setEditingTemplate(template);
-  setTemplateForm({
-    ...template,
-    daysOfWeek: template.daysOfWeek || [],
-    isActive: template.isActive ?? true // <--- Add this line for isActive
-    // The nullish coalescing operator (??) ensures it's true if template.isActive is null or undefined
-  });
-  setShowTemplateForm(true);
-};
+    setEditingTemplate(template);
+    setTemplateForm({
+      ...template,
+      daysOfWeek: template.daysOfWeek || [],
+      isActive: template.isActive ?? true
+    });
+    setShowTemplateForm(true);
+  };
 
   const editException = (exception: AvailabilityException) => {
     setEditingException(exception);
@@ -486,13 +474,11 @@ const DoctorSettings = () => {
   return (
     <MainLayout userType="doctor">
       <div className="space-y-8">
-        {/* Header */}
         <div>
           <h1 className="page-title">Settings</h1>
           <p className="text-gray-600">Manage your account preferences and availability</p>
         </div>
 
-        {/* Feedback Messages */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-red-600" />
@@ -505,7 +491,6 @@ const DoctorSettings = () => {
           </div>
         )}
 
-        {/* Tabs */}
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8">
             {[
@@ -531,9 +516,7 @@ const DoctorSettings = () => {
           </nav>
         </div>
 
-        {/* Tab Content */}
         <div className="space-y-8">
-          {/* Profile Tab */}
           {activeTab === 'profile' && (
             <div className="card">
               <div className="flex items-center gap-3 mb-6">
@@ -576,10 +559,8 @@ const DoctorSettings = () => {
             </div>
           )}
 
-          {/* Availability Tab */}
           {activeTab === 'availability' && (
             <div className="space-y-6">
-              {/* Availability Templates */}
               <div className="card">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
@@ -649,7 +630,6 @@ const DoctorSettings = () => {
                 )}
               </div>
 
-              {/* Availability Exceptions */}
               <div className="card">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
@@ -672,11 +652,10 @@ const DoctorSettings = () => {
 
                 {exceptions.length > 0 ? (
                   <div className="space-y-4">
-                    {(exceptions || []).map((exception) => ( // Added || [] for safety, though setExceptions makes it an array
+                    {(exceptions || []).map((exception) => (
                       <div key={exception.id} className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
-                            {/* Display the date */}
                             <h3 className="font-medium">{exception.date}</h3>
                             <span className={`px-2 py-1 rounded-full text-xs ${
                               exception.exceptionType === 'UNAVAILABLE'
@@ -703,7 +682,6 @@ const DoctorSettings = () => {
                         </div>
                         <div className="text-sm text-gray-600">
                           {exception.exceptionType === 'CUSTOM_HOURS' && exception.timeSlots && (
-                            // Display time slots if type is CUSTOM_HOURS and timeSlots exist
                             <p><strong>Time Slots:</strong> {(exception.timeSlots || []).map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ')}</p>
                           )}
                           {exception.reason && <p><strong>Reason:</strong> {exception.reason}</p>}
@@ -719,7 +697,6 @@ const DoctorSettings = () => {
                 )}
               </div>
 
-              {/* Regenerate Slots */}
               <div className="card">
                 <div className="flex items-center justify-between">
                   <div>
@@ -738,7 +715,6 @@ const DoctorSettings = () => {
             </div>
           )}
 
-          {/* Schedule Tab */}
           {activeTab === 'schedule' && (
             <div className="card">
               <div className="flex items-center gap-3 mb-6">
@@ -750,12 +726,12 @@ const DoctorSettings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Appointment Duration
+                    Slot Duration (minutes)
                   </label>
                   <select
                     className="form-input"
-                    value={settings.appointmentDuration}
-                    onChange={(e) => setSettings({ ...settings, appointmentDuration: Number(e.target.value) })}
+                    value={settings.slotDurationMinutes}
+                    onChange={(e) => setSettings({ ...settings, slotDurationMinutes: Number(e.target.value) })}
                     disabled={loading}
                   >
                     <option value={15}>15 minutes</option>
@@ -766,12 +742,12 @@ const DoctorSettings = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Break Time
+                    Buffer Time (minutes)
                   </label>
                   <select
                     className="form-input"
-                    value={settings.breakTime}
-                    onChange={(e) => setSettings({ ...settings, breakTime: Number(e.target.value) })}
+                    value={settings.bufferTimeMinutes}
+                    onChange={(e) => setSettings({ ...settings, bufferTimeMinutes: Number(e.target.value) })}
                     disabled={loading}
                   >
                     <option value={5}>5 minutes</option>
@@ -780,11 +756,49 @@ const DoctorSettings = () => {
                     <option value={20}>20 minutes</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Advance Booking Days
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={settings.advanceBookingDays}
+                    onChange={(e) => setSettings({ ...settings, advanceBookingDays: Number(e.target.value) })}
+                    min={1}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="autoApprove"
+                    checked={settings.autoApprove}
+                    onChange={(e) => setSettings({ ...settings, autoApprove: e.target.checked })}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    disabled={loading}
+                  />
+                  <label htmlFor="autoApprove" className="text-sm font-medium text-gray-700">
+                    Auto-approve appointments
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="allowOverbooking"
+                    checked={settings.allowOverbooking}
+                    onChange={(e) => setSettings({ ...settings, allowOverbooking: e.target.checked })}
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                    disabled={loading}
+                  />
+                  <label htmlFor="allowOverbooking" className="text-sm font-medium text-gray-700">
+                    Allow overbooking
+                  </label>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Notifications Tab */}
           {activeTab === 'notifications' && (
             <div className="card">
               <div className="flex items-center gap-3 mb-6">
@@ -818,7 +832,6 @@ const DoctorSettings = () => {
             </div>
           )}
 
-          {/* Security Tab */}
           {activeTab === 'security' && (
             <div className="card">
               <div className="flex items-center gap-3 mb-6">
@@ -827,7 +840,7 @@ const DoctorSettings = () => {
                 </div>
                 <h2 className="text-lg font-semibold">Security Settings</h2>
               </div>
-              <div className="space-y-4">
+              <div className="制造-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Current Password
@@ -851,7 +864,6 @@ const DoctorSettings = () => {
           )}
         </div>
 
-        {/* Save Button */}
         <div className="flex justify-end">
           <button
             className="btn-primary flex items-center gap-2"
@@ -863,7 +875,6 @@ const DoctorSettings = () => {
           </button>
         </div>
 
-        {/* Template Form Modal */}
         {showTemplateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1030,7 +1041,6 @@ const DoctorSettings = () => {
           </div>
         )}
 
-        {/* Exception Form Modal */}
         {showExceptionForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">

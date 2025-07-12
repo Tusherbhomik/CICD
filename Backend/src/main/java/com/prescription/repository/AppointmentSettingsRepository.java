@@ -11,4 +11,7 @@ import java.util.Optional;
 public interface AppointmentSettingsRepository extends JpaRepository<AppointmentSettings, Long> {
 
     Optional<AppointmentSettings> findByDoctor(User doctor);
+    Optional<AppointmentSettings> findByDoctorId(Long doctorId);
+    boolean existsByDoctorId(Long doctorId);
+    void deleteByDoctorId(Long doctorId);
 }
