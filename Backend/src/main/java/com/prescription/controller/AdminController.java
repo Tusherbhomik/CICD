@@ -332,6 +332,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ROOT_ADMIN')")
     public ResponseEntity<?> getPendingApprovalAdmins() {
         try {
+            System.out.println("Pending e ashchi" );
             List<Admin> pendingAdmins = adminService.getPendingApprovalAdmins();
 
             List<AdminListResponseDTO.AdminSummary> pendingSummaries = pendingAdmins.stream()

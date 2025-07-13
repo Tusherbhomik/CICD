@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { API_BASE_URL } from '../../url';
 
-// Define interfaces for type safety
 interface AdminData {
   id: number;
   name: string;
@@ -19,10 +18,33 @@ interface Admin {
   id: number;
   name: string;
   email: string;
+  password: string;
+  phone?: string;
   adminLevel: 'ROOT_ADMIN' | 'ADMIN' | 'SUPPORT_ADMIN';
-  status: 'ACTIVE' | 'PENDING_APPROVAL' | 'SUSPENDED' | 'INACTIVE';
-  lastLogin: string | null;
-  createdAt: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING_APPROVAL';
+  createdBy?: number;
+  createdAt: Date;
+  updatedAt?: Date | null;
+  lastLogin?: Date | null;
+  loginAttempts: number;
+  accountLockedUntil?: Date | null;
+}
+
+interface AdminSummary {
+  id: number;
+  name: string;
+  email: string;
+  adminLevel: string;
+  status: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+interface AdminListResponse {
+  message: string;
+  admins: AdminSummary[];
+  totalCount: number;
+  hasMoreData: boolean;
 }
 
 const AdminDashboard = () => {
@@ -52,16 +74,43 @@ const AdminDashboard = () => {
   const loadPendingAdmins = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/pending`, {
-        headers: { 'X-Admin-Id': adminData?.id.toString() || '' },
+        method: 'GET',
+        headers: {
+          'X-Admin-Id': adminData?.id.toString() || '',
+          'Content-Type': 'application/json',
+        },
         credentials: 'include',
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to fetch pending admins');
-      setPendingAdmins(data.admins as Admin[]);
+
+      const data: AdminListResponse = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch pending admins');
+      }
+
+      // Map AdminSummary to Admin type
+      const mappedAdmins: Admin[] = data.admins.map((admin) => ({
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        adminLevel: admin.adminLevel as 'ROOT_ADMIN' | 'ADMIN' | 'SUPPORT_ADMIN',
+        status: admin.status as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING_APPROVAL',
+        createdAt: new Date(admin.createdAt),
+        createdBy: parseInt(admin.createdBy, 10) || undefined,
+        // Default values for fields not included in AdminSummary
+        phone: undefined,
+        password: '',
+        updatedAt: null,
+        lastLogin: null,
+        loginAttempts: 0,
+        accountLockedUntil: null,
+      }));
+
+      setPendingAdmins(mappedAdmins);
     } catch (error) {
       console.error('Failed to load pending admins:', error);
     }
-  }, [adminData?.id]); // Dependency: adminData?.id
+  }, [adminData?.id]);
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('adminData') || 'null') as AdminData | null;
@@ -111,7 +160,7 @@ const AdminDashboard = () => {
     return badges[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | Date | null) => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString();
   };
@@ -154,7 +203,7 @@ const AdminDashboard = () => {
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center gap-2">
                 <svg className="h-8 w-8 text-medical-primary" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8 8-8 8 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8z" fill="currentColor"/>
+                  <path d="M12 2C6.48 2 2ollo 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
                   <path d="M13 7h-2v6h6v-2h-4z" fill="#0ea5e9"/>
                 </svg>
                 <span className="text-2xl font-bold text-medical-primary">MedScribe</span>
