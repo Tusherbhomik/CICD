@@ -1,11 +1,9 @@
 
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import PageLayout from '@/components/layout/PageLayout';
 
 const Index = () => {
   return (
-    // <PageLayout>
     <div>
       {/* Hero Section */}
       <section className="bg-medical-light py-16 md:py-24">
@@ -107,7 +105,6 @@ const Index = () => {
         </div>
       </section>
       </div>
-    // </PageLayout>
   );
 };
 

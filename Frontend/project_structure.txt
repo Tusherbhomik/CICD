@@ -1,6 +1,7 @@
 src/
 ├── App.css
 ├── App.tsx
+├── Hello.tsx
 ├── components
 │   ├── layout
 │   │   ├── Footer.tsx
@@ -31,6 +32,7 @@ src/
 │       ├── command.tsx
 │       ├── context-menu.tsx
 │       ├── dialog.tsx
+│       ├── dialog_genre.tsx
 │       ├── drawer.tsx
 │       ├── dropdown-menu.tsx
 │       ├── form.tsx
@@ -65,6 +67,8 @@ src/
 │       └── use-toast.ts
 ├── config
 │   └── api.ts
+├── contexts
+│   └── AdminContext.tsx
 ├── hooks
 │   ├── use-mobile.tsx
 │   └── use-toast.ts
@@ -72,13 +76,21 @@ src/
 ├── lib
 │   ├── __test__
 │   │   └── utils.test.ts
+│   ├── admin-session-manager.ts
+│   ├── admin-signup-api.ts
 │   ├── api-client.ts
 │   └── utils.ts
 ├── main.tsx
 ├── pages
 │   ├── Index.tsx
 │   ├── NotFound.tsx
+│   ├── admin
+│   │   ├── AdminDashboard.tsx
+│   │   ├── AdminPendingApproval.tsx
+│   │   └── AdminSetup.tsx
 │   ├── auth
+│   │   ├── AdminLogin.tsx
+│   │   ├── AdminSignup.tsx
 │   │   ├── Login.tsx
 │   │   ├── SignUp.tsx
 │   │   └── __test__
@@ -87,12 +99,17 @@ src/
 │   ├── doctor
 │   │   ├── AppointmentSchedule.tsx
 │   │   ├── DoctorDashboard.tsx
+│   │   ├── DoctorEditProfile.tsx
 │   │   ├── DoctorProfile.tsx
 │   │   ├── DoctorSettings.tsx
 │   │   ├── EditProfile.tsx
+│   │   ├── GenericDetailPage.tsx
+│   │   ├── Medicines.tsx
 │   │   ├── NewPrescription.tsx
 │   │   ├── PatientHistory.tsx
 │   │   ├── PatientList.tsx
+│   │   ├── __test__
+│   │   │   └── AppointmnentSchedule.test.tsx
 │   │   └── card.tsx
 │   └── patient
 │       ├── AppointmentHistory.tsx
@@ -100,37 +117,20 @@ src/
 │       ├── MedicalRecords.tsx
 │       ├── MyPrescriptions.tsx
 │       ├── PatientDashboard.tsx
+│       ├── PatientEditProfile.tsx
 │       ├── PatientProfile.tsx
 │       ├── PatientSettings.tsx
 │       ├── PrescriptionDetail.tsx
 │       └── Prescriptions.tsx
-├── playwright.config.ts ( Added )
 ├── test
 │   ├── config.ts
-│   ├── e2e(( Added ))
-│   │   ├── artifacts
-│   │   ├── auth
-│   │   │   ├── auth-flow.spec.ts
-│   │   │   ├── login.spec.ts
-│   │   │   └── signup.spec.ts
-│   │   ├── basic_connectivity_test.ts
-│   │   ├── fixtures
-│   │   │   └── test-data.ts
-│   │   ├── global-setup.ts
-│   │   ├── global-teardown.ts
-│   │   ├── page-objects
-│   │   │   ├── BasePage.ts
-│   │   │   ├── LoginPage.ts
-│   │   │   └── SignUpPage.ts
-│   │   ├── types
-│   │   │   └── index.ts
-│   │   └── utils
-│   │       └── test-helpers.ts
 │   ├── mocks
 │   │   ├── handlers.ts
 │   │   └── server.ts
 │   ├── setup.ts
 │   ├── test-utils.tsx
 │   └── vitest.d.ts
+├── types
+│   └── admin.ts
 ├── url.ts
 └── vite-env.d.ts

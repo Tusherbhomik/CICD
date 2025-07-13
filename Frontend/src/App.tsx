@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { AdminProvider } from "./contexts/AdminContext";
 
 // Auth Pages
 import Login from "./pages/auth/Login";
@@ -33,19 +34,38 @@ import PatientSettings from "./pages/patient/PatientSettings";
 import MedicalRecords from "./pages/patient/MedicalRecords";
 import PatientEditProfile from "./pages/patient/PatientEditProfile";
 
+
+import AdminLogin from './pages/auth/AdminLogin';
+import AdminSetup from './pages/admin/AdminSetup';
+import AdminDashboard from './pages/admin/AdminDashboard';
+// import AdminSignup from './pages/auth/AdminSignup';
+// import AdminPendingApproval from './pages/admin/AdminPendingApproval';
+import Hello from "./Hello";
+
 const queryClient = new QueryClient();
 
 const App = () => (
+  <AdminProvider>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path ="/hello" element={<Hello/>}/>
           {/* Public Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/setup" element={<AdminSetup />} />
+          {/* <Route path="/admin/signup" element={<AdminSignup />} /> */}
+          {/* <Route path="/admin/pending-approval" element={<AdminPendingApproval />} /> */}
+
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          {/* <Route path="/admin/dashboard/root" element={<RootAdminDashboard />} /> */}
+
           {/* Doctor Routes */}
           <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
           <Route
@@ -67,6 +87,7 @@ const App = () => (
           <Route path="/doctor/profile" element={<DoctorProfile />} />
           <Route path="/doctor/profile/edit" element={<EditDoctorProfile />} />
           <Route path="/doctor/settings" element={<DoctorSettings />} />
+
           {/* Patient Routes */}
           <Route path="/patient/dashboard" element={<PatientDashboard />} />
           <Route path="/patient/prescriptions" element={<Prescriptions />} />
@@ -86,12 +107,17 @@ const App = () => (
           <Route path="/patient/profile/edit" element={<PatientEditProfile />} />
           <Route path="/patient/settings" element={<PatientSettings />} />
           <Route path="/patient/medical-records" element={<MedicalRecords />} />
+
+          {/* Admin Routes (placeholder for future admin pages) */}
+          {/* You can add admin dashboard and other admin pages here later */}
+
           {/* 404 Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </AdminProvider>
 );
 
 export default App;
