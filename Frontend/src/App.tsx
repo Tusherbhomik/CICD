@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import { AdminProvider } from "./contexts/AdminContext";
 
 // Auth Pages
 import Login from "./pages/auth/Login";
@@ -38,14 +37,13 @@ import PatientEditProfile from "./pages/patient/PatientEditProfile";
 import AdminLogin from './pages/auth/AdminLogin';
 import AdminSetup from './pages/admin/AdminSetup';
 import AdminDashboard from './pages/admin/AdminDashboard';
-// import AdminSignup from './pages/auth/AdminSignup';
-// import AdminPendingApproval from './pages/admin/AdminPendingApproval';
+import AdminSignup from './pages/auth/AdminSignup';
+import AdminPendingApproval from './pages/admin/AdminPendingApproval';
 import Hello from "./Hello";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <AdminProvider>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -60,8 +58,8 @@ const App = () => (
 
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/setup" element={<AdminSetup />} />
-          {/* <Route path="/admin/signup" element={<AdminSignup />} /> */}
-          {/* <Route path="/admin/pending-approval" element={<AdminPendingApproval />} /> */}
+          <Route path="/admin/signup" element={<AdminSignup />} />
+          <Route path="/admin/pending-approval" element={<AdminPendingApproval />} />
 
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           {/* <Route path="/admin/dashboard/root" element={<RootAdminDashboard />} /> */}
@@ -117,7 +115,6 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-  </AdminProvider>
 );
 
 export default App;
