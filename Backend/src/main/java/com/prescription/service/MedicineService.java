@@ -1,5 +1,6 @@
 package com.prescription.service;
 
+import com.prescription.dto.MedicineRequestDto;
 import com.prescription.dto.MedicineSearchDto;
 import com.prescription.entity.Medicine;
 import com.prescription.entity.MedicineGeneric;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -26,11 +28,7 @@ public class MedicineService {
 
     public List<MedicineSearchDto> searchMedicines(String searchTerm) {
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
-            List<Medicine> medicines;
-//            System.out.println("yes i am in");
-
-            medicines = medicineRepository.findAll();
-            System.out.println(medicines);
+            List<Medicine> medicines = medicineRepository.findAll();
             List<MedicineSearchDto> results2 = new ArrayList<>();
             for (Medicine medicine : medicines) {
                 MedicineSearchDto dto = convertToSearchDto(medicine);
@@ -42,7 +40,6 @@ public class MedicineService {
         String trimmedSearchTerm = searchTerm.trim();
         List<MedicineSearchDto> results = new ArrayList<>();
 
-        // Search by medicine name or generic name
         List<Medicine> medicines = medicineRepository.findByNameOrGenericNameContainingIgnoreCase(trimmedSearchTerm);
 
         for (Medicine medicine : medicines) {
@@ -80,6 +77,67 @@ public class MedicineService {
         return results;
     }
 
+    @Transactional
+    public void saveMedicine(MedicineRequestDto medicineRequestDto) {
+        MedicineGeneric generic = medicineGenericRepository.findByGenericNameContainingIgnoreCase(medicineRequestDto.getGenericName())
+                .stream().findFirst().orElseGet(() -> {
+                    MedicineGeneric newGeneric = new MedicineGeneric();
+                    newGeneric.setGenericName(medicineRequestDto.getGenericName());
+                    newGeneric.setCategory(medicineRequestDto.getCategory());
+                    newGeneric.setDescription(medicineRequestDto.getDescription());
+                    newGeneric.setCreatedAt(LocalDateTime.now());
+                    newGeneric.setUpdatedAt(LocalDateTime.now());
+                    return medicineGenericRepository.save(newGeneric);
+                });
+
+        Medicine medicine = new Medicine();
+        medicine.setName(medicineRequestDto.getName());
+        medicine.setStrength(medicineRequestDto.getStrength());
+        medicine.setForm(medicineRequestDto.getForm());
+        medicine.setPrice(medicineRequestDto.getPrice());
+        medicine.setManufacturer(medicineRequestDto.getManufacturer());
+        medicine.setMedicineGeneric(generic);
+        medicine.setUpdatedAt(LocalDateTime.now());
+        medicine.setCreatedAt(LocalDateTime.now());
+        medicineRepository.save(medicine);
+    }
+
+    @Transactional
+    public void updateMedicine(Long id, MedicineRequestDto medicineRequestDto) {
+        Medicine medicine = medicineRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medicine not found with id: " + id));
+
+        MedicineGeneric generic = medicine.getMedicineGeneric();
+        if (generic == null || !generic.getGenericName().equals(medicineRequestDto.getGenericName())) {
+            generic = medicineGenericRepository.findByGenericNameContainingIgnoreCase(medicineRequestDto.getGenericName())
+                    .stream().findFirst().orElseGet(() -> {
+                        MedicineGeneric newGeneric = new MedicineGeneric();
+                        newGeneric.setGenericName(medicineRequestDto.getGenericName());
+                        newGeneric.setCategory(medicineRequestDto.getCategory());
+                        newGeneric.setDescription(medicineRequestDto.getDescription());
+                        return medicineGenericRepository.save(newGeneric);
+                    });
+        } else {
+            generic.setCategory(medicineRequestDto.getCategory());
+            generic.setDescription(medicineRequestDto.getDescription());
+        }
+
+        medicine.setName(medicineRequestDto.getName());
+        medicine.setStrength(medicineRequestDto.getStrength());
+        medicine.setForm(medicineRequestDto.getForm());
+        medicine.setPrice(medicineRequestDto.getPrice());
+        medicine.setManufacturer(medicineRequestDto.getManufacturer());
+        medicine.setMedicineGeneric(generic);
+        medicineRepository.save(medicine);
+    }
+
+    @Transactional
+    public void deleteMedicine(Long id) {
+        Medicine medicine = medicineRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medicine not found with id: " + id));
+        medicineRepository.delete(medicine);
+    }
+
     public MedicineSearchDto convertToGenericsSearchDto(MedicineGeneric genre) {
         MedicineSearchDto dto = new MedicineSearchDto();
         dto.setId(genre.getId());
@@ -87,7 +145,6 @@ public class MedicineService {
         dto.setCategory(genre.getCategory());
         dto.setDescription(genre.getDescription());
 
-        // Fetch medicines for this generic
         List<Medicine> medicines = medicineRepository.findByMedicineGenericId(genre.getId());
         List<MedicineSearchDto> medicineDtos = new ArrayList<>();
         for (Medicine medicine : medicines) {
@@ -108,7 +165,6 @@ public class MedicineService {
         dto.setPrice(medicine.getPrice());
         dto.setManufacturer(medicine.getManufacturer());
 
-        // Add generic information
         MedicineGeneric generic = medicine.getMedicineGeneric();
         if (generic != null) {
             dto.setGenericName(generic.getGenericName());

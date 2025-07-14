@@ -1,0 +1,18 @@
+-- Insert into medicine_generics
+INSERT INTO medicine_generics (generic_name, category, description, created_at, updated_at)
+VALUES
+    ('Paracetamol', 'Analgesic', '{"side_effects": "Rare: rash, nausea", "usage": "Pain relief, fever reduction"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Ibuprofen', 'NSAID', '{"side_effects": "Stomach upset, dizziness", "usage": "Anti-inflammatory, pain relief"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Amoxicillin', 'Antibiotic', '{"side_effects": "Diarrhea, allergic reactions", "usage": "Bacterial infections"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Loratadine', 'Antihistamine', '{"side_effects": "Drowsiness, headache", "usage": "Allergy relief"}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Insert into medicines (referencing generic_id from medicine_generics)
+INSERT INTO medicines (name, strength, form, generic_id, price, manufacturer, created_at, updated_at)
+VALUES
+    ('Tylenol', '500 mg', 'TABLET', 1, 5.99, 'Johnson & Johnson', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Panadol', '650 mg', 'TABLET', 1, 6.49, 'GSK', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Advil', '200 mg', 'CAPSULE', 2, 7.99, 'Pfizer', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Motrin', '400 mg', 'TABLET', 2, 8.49, 'Pfizer', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Amoxil', '500 mg', 'CAPSULE', 3, 12.99, 'GSK', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Claritin', '10 mg', 'TABLET', 4, 9.99, 'Bayer', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('Zyrtec', '10 mg', 'TABLET', 4, 10.49, 'Johnson & Johnson', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
