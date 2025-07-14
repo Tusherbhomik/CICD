@@ -4,8 +4,10 @@ import com.prescription.dto.admin.*;
 import com.prescription.entity.Admin;
 import com.prescription.exception.AdminException;
 import com.prescription.repository.AdminRepository;
+import com.prescription.util.JwtUtil; // Add this import
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired; // Add this import
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +28,9 @@ public class AdminService {
     private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Autowired // Add JWT utility
+    private JwtUtil jwtUtil;
+
     // Constants for security
     private static final int MAX_LOGIN_ATTEMPTS = 5;
     private static final int ACCOUNT_LOCK_DURATION_HOURS = 2;
@@ -33,7 +38,7 @@ public class AdminService {
     // ============ AUTHENTICATION METHODS ============
 
     /**
-     * Admin login
+     * Admin login with JWT token generation
      */
     public AdminLoginResponseDTO login(AdminLoginRequestDTO request) {
         log.info("Admin login attempt for email: {}", request.getEmail());
@@ -63,9 +68,17 @@ public class AdminService {
         // Successful login
         handleSuccessfulLogin(admin);
 
+        // Generate JWT token
+        String jwtToken = jwtUtil.generateToken(
+                admin.getEmail(),
+                "ADMIN", // Role for Spring Security
+                admin.getId()
+        );
+
         AdminLoginResponseDTO response = new AdminLoginResponseDTO();
         response.setMessage("Login successful");
         response.setAdmin(new AdminLoginResponseDTO.AdminInfo(admin));
+        response.setToken(jwtToken); // Set JWT token
         response.setLoginTime(LocalDateTime.now());
 
         log.info("Admin login successful for: {}", request.getEmail());
@@ -73,7 +86,7 @@ public class AdminService {
     }
 
     /**
-     * Admin signup/registration
+     * Admin signup/registration with JWT token generation
      */
     public AdminSignupResponseDTO signup(AdminSignupRequestDTO request, Long createdByAdminId) {
         log.info("Admin signup attempt for email: {}", request.getEmail());
@@ -120,50 +133,52 @@ public class AdminService {
 
         admin = adminRepository.save(admin);
 
-        AdminSignupResponseDTO response = new AdminSignupResponseDTO();
-        response.setMessage(isFirstAdmin ? "ROOT_ADMIN account created successfully" :
-                "Admin account created. Pending approval.");
-        response.setAdmin(new AdminSignupResponseDTO.AdminInfo(admin));
-        response.setCreatedAt(admin.getCreatedAt());
-        response.setRequiresApproval(!isFirstAdmin);
+        // Generate JWT token only if admin is active (first admin)
+        String jwtToken = null;
+        if (!isFirstAdmin || admin.getStatus() == Admin.AdminStatus.ACTIVE) {
+            jwtToken = jwtUtil.generateToken(
+                    admin.getEmail(),
+                    "ADMIN",
+                    admin.getId()
+            );
+        }
+
+        AdminSignupResponseDTO response = AdminSignupResponseDTO.builder()
+                .message(isFirstAdmin ? "ROOT_ADMIN account created successfully" :
+                        "Admin account created. Pending approval.")
+                .admin(new AdminSignupResponseDTO.AdminInfo(admin))
+                .token(jwtToken) // Will be null if requires approval
+                .createdAt(admin.getCreatedAt())
+                .requiresApproval(!isFirstAdmin)
+                .build();
 
         log.info("Admin signup successful for: {}", request.getEmail());
         return response;
     }
 
-    // ============ ADMIN MANAGEMENT METHODS ============
+    // ============ REST OF YOUR EXISTING METHODS ============
+    // (Keep all your existing methods exactly as they are)
 
-    /**
-     * Get admin by ID
-     */
     @Transactional(readOnly = true)
     public Admin getAdminById(Long id) {
         return adminRepository.findById(id)
                 .orElseThrow(() -> new AdminException("Admin not found with ID: " + id));
     }
 
-    /**
-     * Get admin by email
-     */
     @Transactional(readOnly = true)
     public Admin getAdminByEmail(String email) {
         return adminRepository.findByEmail(email)
                 .orElseThrow(() -> new AdminException("Admin not found with email: " + email));
     }
 
-    /**
-     * Get all admins with pagination
-     */
     @Transactional(readOnly = true)
     public AdminListResponseDTO getAllAdmins(Pageable pageable, Long requestingAdminId) {
         Admin requestingAdmin = getAdminById(requestingAdminId);
 
         Page<Admin> adminPage;
         if (requestingAdmin.isRootAdmin()) {
-            // ROOT_ADMIN can see all admins
             adminPage = adminRepository.findAll(pageable);
         } else {
-            // Regular admins can only see admins they created
             adminPage = adminRepository.findByCreatedBy(requestingAdminId, pageable);
         }
 
@@ -184,9 +199,6 @@ public class AdminService {
         return response;
     }
 
-    /**
-     * Approve pending admin
-     */
     public void approveAdmin(Long adminId, Long approvingAdminId) {
         Admin approvingAdmin = getAdminById(approvingAdminId);
         if (!approvingAdmin.canManageAdmins()) {
@@ -204,24 +216,18 @@ public class AdminService {
         log.info("Admin {} approved by {}", adminToApprove.getEmail(), approvingAdmin.getEmail());
     }
 
-    /**
-     * Suspend admin
-     */
     public void suspendAdmin(Long adminId, Long suspendingAdminId) {
         Admin suspendingAdmin = getAdminById(suspendingAdminId);
         Admin adminToSuspend = getAdminById(adminId);
 
-        // ROOT_ADMIN cannot be suspended
         if (adminToSuspend.isRootAdmin()) {
             throw new AdminException("ROOT_ADMIN cannot be suspended");
         }
 
-        // Only ROOT_ADMIN can suspend other admins
         if (!suspendingAdmin.isRootAdmin()) {
             throw new AdminException("Only ROOT_ADMIN can suspend other admins");
         }
 
-        // Cannot suspend yourself
         if (adminId.equals(suspendingAdminId)) {
             throw new AdminException("You cannot suspend yourself");
         }
@@ -232,23 +238,17 @@ public class AdminService {
         log.info("Admin {} suspended by {}", adminToSuspend.getEmail(), suspendingAdmin.getEmail());
     }
 
-    /**
-     * Update admin details
-     */
     public Admin updateAdmin(Long adminId, AdminUpdateRequestDTO request, Long updatingAdminId) {
         Admin updatingAdmin = getAdminById(updatingAdminId);
         Admin adminToUpdate = getAdminById(adminId);
 
-        // Check permissions
         if (!canManageAdmin(updatingAdminId, adminId)) {
             throw new AdminException("You don't have permission to update this admin");
         }
 
-        // Update allowed fields
         adminToUpdate.setName(request.getName());
         adminToUpdate.setPhone(request.getPhone());
 
-        // Only ROOT_ADMIN can change admin levels and status
         if (updatingAdmin.isRootAdmin()) {
             if (request.getAdminLevel() != null) {
                 adminToUpdate.setAdminLevel(request.getAdminLevel());
@@ -261,63 +261,44 @@ public class AdminService {
         return adminRepository.save(adminToUpdate);
     }
 
-    /**
-     * Change admin password
-     */
     public void changePassword(Long adminId, AdminPasswordChangeRequestDTO request) {
         Admin admin = getAdminById(adminId);
 
-        // Verify current password
         if (!passwordEncoder.matches(request.getCurrentPassword(), admin.getPassword())) {
             throw new AdminException("Current password is incorrect");
         }
 
-        // Validate new password confirmation
         if (!request.isNewPasswordMatching()) {
             throw new AdminException("New password and confirm password do not match");
         }
 
-        // Update password
         admin.setPassword(passwordEncoder.encode(request.getNewPassword()));
         adminRepository.save(admin);
 
         log.info("Password changed for admin: {}", admin.getEmail());
     }
 
-    // ============ UTILITY METHODS ============
-
-    /**
-     * Check if an admin can manage another admin
-     */
     @Transactional(readOnly = true)
     public boolean canManageAdmin(Long managerId, Long targetId) {
         if (managerId.equals(targetId)) {
-            return true; // Can manage self
+            return true;
         }
 
         Admin manager = getAdminById(managerId);
         Admin target = getAdminById(targetId);
 
-        // ROOT_ADMIN can manage all non-ROOT_ADMIN accounts
         if (manager.isRootAdmin() && !target.isRootAdmin()) {
             return true;
         }
 
-        // Admin can manage admins they created (if not ROOT_ADMIN)
         return !target.isRootAdmin() && targetId.equals(target.getCreatedBy());
     }
 
-    /**
-     * Get pending approval admins
-     */
     @Transactional(readOnly = true)
     public List<Admin> getPendingApprovalAdmins() {
         return adminRepository.findPendingApprovalAdmins();
     }
 
-    /**
-     * Check if ROOT_ADMIN exists
-     */
     @Transactional(readOnly = true)
     public boolean rootAdminExists() {
         return adminRepository.existsByAdminLevel(Admin.AdminLevel.ROOT_ADMIN);

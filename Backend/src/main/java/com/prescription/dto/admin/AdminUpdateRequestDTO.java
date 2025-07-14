@@ -1,7 +1,9 @@
+// AdminUpdateRequestDTO.java
 package com.prescription.dto.admin;
 
 import com.prescription.entity.Admin;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,12 +13,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminUpdateRequestDTO {
-
-    @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
+    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
     private String name;
 
-    @Size(max = 15, message = "Phone number should not exceed 15 characters")
+    @Email(message = "Please provide a valid email address")
+    private String email;
+
+    @Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Please provide a valid phone number")
     private String phone;
 
     private Admin.AdminLevel adminLevel;

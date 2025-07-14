@@ -12,6 +12,7 @@ interface AdminData {
   canManageAdmins: boolean;
   lastLogin: string | null;
   loginTime: string;
+  token?: string;
 }
 
 interface Admin {
@@ -47,48 +48,261 @@ interface AdminListResponse {
   hasMoreData: boolean;
 }
 
+// New interface for Medicine data based on MedicineSearchDto
+interface Medicine {
+  id: number;
+  name: string;
+  genericName: string;
+  strength: string;
+  form: string;
+  price: string;
+  manufacturer: string;
+  category: string;
+  description: string;
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'admins' | 'pending'>('overview');
+  // Modified selectedTab to include new 'medicines' option
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'admins' | 'pending' | 'medicines'>('overview');
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [pendingAdmins, setPendingAdmins] = useState<Admin[]>([]);
+  // New state for medicines
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [showConfirmDialog, setShowConfirmDialog] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'approve' | 'suspend' | 'activate';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'approve'
+  });
 
-  // Memoize loadAdmins to prevent unnecessary re-creation
-  const loadAdmins = useCallback(async () => {
+  // Helper function to show toast notifications
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg text-white ${
+      type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      document.body.removeChild(toast);
+    }, 3000);
+  };
+
+  // Helper function to get JWT token
+  const getAuthToken = useCallback(() => {
+    const token = adminData?.token || localStorage.getItem('adminJwtToken');
+    return token;
+  }, [adminData?.token]);
+
+  // Helper function to create auth headers
+  const getAuthHeaders = useCallback(() => {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
+  }, [getAuthToken]);
+
+  // New function to load medicines
+  const loadMedicines = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/list?page=0&size=10&sortBy=createdAt&sortDir=desc`, {
-        headers: { 'X-Admin-Id': adminData?.id.toString() || '' },
+      const token = getAuthToken();
+      if (!token) {
+        console.error('No JWT token available for loading medicines');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/medicines/search`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
         credentials: 'include',
       });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized: Please log in again');
+          localStorage.removeItem('adminData');
+          localStorage.removeItem('adminJwtToken');
+          navigate('/admin/login');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to fetch admins');
+      setMedicines(data as Medicine[]);
+    } catch (error) {
+      console.error('Failed to load medicines:', error);
+      setMedicines([]);
+      showToast('Failed to load medicines', 'error');
+    }
+  }, [getAuthHeaders, getAuthToken, navigate]);
+
+  // Handle admin approval
+  const handleApproveAdmin = useCallback(async (adminId: number, adminName: string) => {
+    const actionKey = `approve-${adminId}`;
+    setActionLoading(prev => ({ ...prev, [actionKey]: true }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/${adminId}/approve`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to approve admin');
+      }
+
+      const result = await response.json();
+      showToast(`${adminName} has been approved successfully!`);
+      
+      await Promise.all([loadAdmins(), loadPendingAdmins()]);
+
+    } catch (error) {
+      console.error('Failed to approve admin:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to approve admin', 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }));
+    }
+  }, [getAuthHeaders]);
+
+  // Handle admin suspension
+  const handleSuspendAdmin = useCallback(async (adminId: number, adminName: string) => {
+    const actionKey = `suspend-${adminId}`;
+    setActionLoading(prev => ({ ...prev, [actionKey]: true }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/${adminId}/suspend`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to suspend admin');
+      }
+
+      const result = await response.json();
+      showToast(`${adminName} has been suspended successfully!`);
+      
+      await loadAdmins();
+
+    } catch (error) {
+      console.error('Failed to suspend admin:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to suspend admin', 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }));
+    }
+  }, [getAuthHeaders]);
+
+  // Show confirmation dialog
+  const showConfirmation = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    type: 'approve' | 'suspend' | 'activate'
+  ) => {
+    setShowConfirmDialog({
+      show: true,
+      title,
+      message,
+      onConfirm,
+      type
+    });
+  };
+
+  // Updated loadAdmins with JWT authentication
+  const loadAdmins = useCallback(async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        console.error('No JWT token available for loading admins');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/list?page=0&size=50&sortBy=createdAt&sortDir=desc`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized: Please log in again');
+          localStorage.removeItem('adminData');
+          localStorage.removeItem('adminJwtToken');
+          navigate('/admin/login');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       setAdmins(data.admins as Admin[]);
     } catch (error) {
       console.error('Failed to load admins:', error);
+      setAdmins([]);
     }
-  }, [adminData?.id]); // Dependency: adminData?.id
+  }, [getAuthHeaders, getAuthToken, navigate]);
 
-  // Memoize loadPendingAdmins to prevent unnecessary re-creation
+  // Updated loadPendingAdmins with JWT authentication
   const loadPendingAdmins = useCallback(async () => {
     try {
+      const token = getAuthToken();
+      if (!token) {
+        console.error('No JWT token available for loading pending admins');
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/admin/pending`, {
         method: 'GET',
-        headers: {
-          'X-Admin-Id': adminData?.id.toString() || '',
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         credentials: 'include',
       });
 
-      const data: AdminListResponse = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch pending admins');
+        if (response.status === 401) {
+          console.error('Unauthorized: Please log in again');
+          localStorage.removeItem('adminData');
+          localStorage.removeItem('adminJwtToken');
+          navigate('/admin/login');
+          return;
+        }
+        if (response.status === 403) {
+          console.error('Access denied: Only ROOT_ADMIN can view pending approvals');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // Map AdminSummary to Admin type
+      const data: AdminListResponse = await response.json();
+
+      if (!data.admins) {
+        console.warn('No admins array in response');
+        setPendingAdmins([]);
+        return;
+      }
+
       const mappedAdmins: Admin[] = data.admins.map((admin) => ({
         id: admin.id,
         name: admin.name,
@@ -96,8 +310,7 @@ const AdminDashboard = () => {
         adminLevel: admin.adminLevel as 'ROOT_ADMIN' | 'ADMIN' | 'SUPPORT_ADMIN',
         status: admin.status as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING_APPROVAL',
         createdAt: new Date(admin.createdAt),
-        createdBy: parseInt(admin.createdBy, 10) || undefined,
-        // Default values for fields not included in AdminSummary
+        createdBy: admin.createdBy ? parseInt(admin.createdBy, 10) : undefined,
         phone: undefined,
         password: '',
         updatedAt: null,
@@ -107,36 +320,60 @@ const AdminDashboard = () => {
       }));
 
       setPendingAdmins(mappedAdmins);
+
     } catch (error) {
       console.error('Failed to load pending admins:', error);
+      setPendingAdmins([]);
     }
-  }, [adminData?.id]);
+  }, [getAuthHeaders, getAuthToken, navigate]);
 
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('adminData') || 'null') as AdminData | null;
-    if (!data) {
+    const token = localStorage.getItem('adminJwtToken');
+    
+    if (!data && !token) {
       setIsLoading(false);
       return;
     }
-    setAdminData(data);
-    if (data.canManageAdmins) {
+
+    if (token && !data) {
+      console.warn('JWT token found but no admin data. Please log in again.');
+      localStorage.removeItem('adminJwtToken');
+      setIsLoading(false);
+      return;
+    }
+
+    if (data && token && !data.token) {
+      data.token = token;
+      setAdminData(data);
+      localStorage.setItem('adminData', JSON.stringify(data));
+    } else {
+      setAdminData(data);
+    }
+
+    if (data?.canManageAdmins) {
       loadAdmins();
       loadPendingAdmins();
+      // Load medicines when admin has permission
+      loadMedicines();
     }
+    
     setIsLoading(false);
-  }, [loadAdmins, loadPendingAdmins]); // Include loadAdmins and loadPendingAdmins in the dependency array
+  }, [loadAdmins, loadPendingAdmins, loadMedicines]);
 
   const handleLogout = async () => {
     try {
+      const headers = getAuthHeaders();
       await fetch(`${API_BASE_URL}/api/admin/logout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
       });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('adminData');
+      localStorage.removeItem('adminJwtToken');
       navigate('/admin/login');
     }
   };
@@ -164,6 +401,9 @@ const AdminDashboard = () => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString();
   };
+
+  // Check if current user can perform admin actions
+  const canPerformAdminActions = adminData?.adminLevel === 'ROOT_ADMIN';
 
   if (isLoading) {
     return (
@@ -197,14 +437,46 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#f7fbff]">
+      {/* Confirmation Dialog */}
+      {showConfirmDialog.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">{showConfirmDialog.title}</h3>
+            <p className="text-gray-600 mb-6">{showConfirmDialog.message}</p>
+            <div className="flex space-x-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirmDialog(prev => ({ ...prev, show: false }))}
+              >
+                Cancel
+              </Button>
+              <Button
+                className={`${
+                  showConfirmDialog.type === 'suspend' 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-green-600 hover:bg-green-700'
+                } text-white`}
+                onClick={() => {
+                  showConfirmDialog.onConfirm();
+                  setShowConfirmDialog(prev => ({ ...prev, show: false }));
+                }}
+              >
+                {showConfirmDialog.type === 'suspend' ? 'Suspend' : 
+                 showConfirmDialog.type === 'approve' ? 'Approve' : 'Activate'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center gap-2">
                 <svg className="h-8 w-8 text-medical-primary" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2C6.48 2 2ollo 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor"/>
-                  <path d="M13 7h-2v6h6v-2h-4z" fill="#0ea5e9"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="currentColor" />
+                  <path d="M13 7h-2v6h6v-2h-4z" fill="#0ea5e9" />
                 </svg>
                 <span className="text-2xl font-bold text-medical-primary">MedScribe</span>
               </Link>
@@ -221,37 +493,35 @@ const AdminDashboard = () => {
           </div>
         </div>
       </header>
+
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             <button
               onClick={() => setSelectedTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                selectedTab === 'overview'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${selectedTab === 'overview'
                   ? 'border-red-500 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               Overview
             </button>
             <button
               onClick={() => setSelectedTab('admins')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                selectedTab === 'admins'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${selectedTab === 'admins'
                   ? 'border-red-500 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+                }`}
             >
               All Admins ({admins.length})
             </button>
             {adminData.canManageAdmins && (
               <button
                 onClick={() => setSelectedTab('pending')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  selectedTab === 'pending'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${selectedTab === 'pending'
                     ? 'border-red-500 text-red-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 Pending Approvals ({pendingAdmins.length})
                 {pendingAdmins.length > 0 && (
@@ -261,9 +531,22 @@ const AdminDashboard = () => {
                 )}
               </button>
             )}
+            {/* New Update Medicine DB tab */}
+            {adminData.canManageAdmins && (
+              <button
+                onClick={() => setSelectedTab('medicines')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${selectedTab === 'medicines'
+                    ? 'border-red-500 text-red-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                Update Medicine DB ({medicines.length})
+              </button>
+            )}
           </div>
         </div>
       </nav>
+
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {selectedTab === 'overview' && (
@@ -284,6 +567,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
+              
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="bg-white overflow-hidden shadow rounded-lg">
                   <div className="p-5">
@@ -331,17 +615,20 @@ const AdminDashboard = () => {
                 <div className="bg-white overflow-hidden shadow rounded-lg">
                   <div className="p-5">
                     <div className="flex items-center">
-                      <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
                       </svg>
                       <div className="ml-5">
-                        <dt className="text-sm font-medium text-gray-500">System Status</dt>
-                        <dd className="text-lg font-medium text-green-900">Healthy</dd>
+                        <dt className="text-sm font-medium text-gray-500">Suspended Admins</dt>
+                        <dd className="text-lg font-medium text-gray-900">
+                          {admins.filter(admin => admin.status === 'SUSPENDED').length}
+                        </dd>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+              
               <div className="bg-white shadow rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
@@ -362,6 +649,7 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
           {selectedTab === 'admins' && (
             <div className="bg-white shadow rounded-lg">
               <div className="px-4 py-5 sm:p-6">
@@ -375,6 +663,9 @@ const AdminDashboard = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Login</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                        {canPerformAdminActions && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -396,6 +687,52 @@ const AdminDashboard = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(admin.lastLogin)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(admin.createdAt)}</td>
+                          {canPerformAdminActions && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                              {admin.adminLevel !== 'ROOT_ADMIN' && admin.id !== adminData.id && (
+                                <>
+                                  {admin.status === 'ACTIVE' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 border-red-600 hover:bg-red-50"
+                                      onClick={() => showConfirmation(
+                                        'Suspend Admin',
+                                        `Are you sure you want to suspend ${admin.name}? They will lose access to the admin panel.`,
+                                        () => handleSuspendAdmin(admin.id, admin.name),
+                                        'suspend'
+                                      )}
+                                      disabled={actionLoading[`suspend-${admin.id}`]}
+                                    >
+                                      {actionLoading[`suspend-${admin.id}`] ? 'Suspending...' : 'Suspend'}
+                                    </Button>
+                                  )}
+                                  {admin.status === 'SUSPENDED' && (
+                                    <Button
+                                      size="sm"
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                      onClick={() => showConfirmation(
+                                        'Activate Admin',
+                                        `Are you sure you want to reactivate ${admin.name}? They will regain access to the admin panel.`,
+                                        () => {
+                                          console.log('Activate functionality to be implemented');
+                                        },
+                                        'activate'
+                                      )}
+                                    >
+                                      Activate
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                              {admin.adminLevel === 'ROOT_ADMIN' && (
+                                <span className="text-xs text-gray-500">Protected</span>
+                              )}
+                              {admin.id === adminData.id && (
+                                <span className="text-xs text-gray-500">You</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -404,6 +741,7 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
           {selectedTab === 'pending' && (
             <div className="bg-white shadow rounded-lg">
               <div className="px-4 py-5 sm:p-6">
@@ -416,6 +754,9 @@ const AdminDashboard = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Level</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requested At</th>
+                        {canPerformAdminActions && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -436,12 +777,130 @@ const AdminDashboard = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(admin.createdAt)}</td>
+                          {canPerformAdminActions && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => showConfirmation(
+                                  'Approve Admin',
+                                  `Are you sure you want to approve ${admin.name}? They will gain access to the admin panel.`,
+                                  () => handleApproveAdmin(admin.id, admin.name),
+                                  'approve'
+                                )}
+                                disabled={actionLoading[`approve-${admin.id}`]}
+                              >
+                                {actionLoading[`approve-${admin.id}`] ? 'Approving...' : 'Approve'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 border-red-600 hover:bg-red-50"
+                                onClick={() => showConfirmation(
+                                  'Reject Admin',
+                                  `Are you sure you want to reject ${admin.name}'s application? This action cannot be undone.`,
+                                  () => {
+                                    console.log('Reject functionality to be implemented');
+                                  },
+                                  'suspend'
+                                )}
+                              >
+                                Reject
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                       {pendingAdmins.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
-                            No pending admin approvals at this time.
+                          <td colSpan={canPerformAdminActions ? 5 : 4} className="px-6 py-8 text-center">
+                            <div className="text-gray-500">
+                              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <p className="text-sm">No pending admin approvals at this time.</p>
+                              <p className="text-xs text-gray-400 mt-1">New admin requests will appear here for approval.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* New Update Medicine DB section */}
+          {selectedTab === 'medicines' && (
+            <div className="bg-white shadow rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Medicine Database</h3>
+                  <Link to="/admin/medicines/add">
+                    <Button className="bg-blue-600 hover:bg-blue-700">Add New Medicine</Button>
+                  </Link>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Generic Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Strength</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Form</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manufacturer</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                        {canPerformAdminActions && (
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {medicines.map(medicine => (
+                        <tr key={medicine.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.genericName}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.strength}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.form}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.price}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.manufacturer || 'N/A'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{medicine.category}</td>
+                          {canPerformAdminActions && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                              <Link to={`/admin/medicines/edit/${medicine.id}`}>
+                                <Button size="sm" variant="outline">Edit</Button>
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 border-red-600 hover:bg-red-50"
+                                onClick={() => showConfirmation(
+                                  'Delete Medicine',
+                                  `Are you sure you want to delete ${medicine.name}? This action cannot be undone.`,
+                                  () => {
+                                    console.log('Delete medicine functionality to be implemented');
+                                  },
+                                  'suspend'
+                                )}
+                              >
+                                Delete
+                              </Button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                      {medicines.length === 0 && (
+                        <tr>
+                          <td colSpan={canPerformAdminActions ? 8 : 7} className="px-6 py-8 text-center">
+                            <div className="text-gray-500">
+                              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <p className="text-sm">No medicines found in the database.</p>
+                              <p className="text-xs text-gray-400 mt-1">Add new medicines to populate the database.</p>
+                            </div>
                           </td>
                         </tr>
                       )}

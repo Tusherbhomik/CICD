@@ -1,3 +1,4 @@
+// AdminLoginResponseDTO.java
 package com.prescription.dto.admin;
 
 import com.prescription.entity.Admin;
@@ -11,10 +12,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminLoginResponseDTO {
-
     private String message;
-    private AdminLoginResponseDTO.AdminInfo admin;
-    private String token; // JWT token if using JWT
+    private AdminInfo admin;
+    private String token; // JWT token
     private LocalDateTime loginTime;
 
     @Data
@@ -24,20 +24,21 @@ public class AdminLoginResponseDTO {
         private Long id;
         private String name;
         private String email;
-        private Admin.AdminLevel adminLevel;
-        private Admin.AdminStatus status;
-        private LocalDateTime lastLogin;
+        private String adminLevel;
+        private String status;
         private boolean canManageAdmins;
+        private LocalDateTime lastLogin;
+        private LocalDateTime loginTime;
 
-        // Constructor from Admin entity
         public AdminInfo(Admin admin) {
             this.id = admin.getId();
             this.name = admin.getName();
             this.email = admin.getEmail();
-            this.adminLevel = admin.getAdminLevel();
-            this.status = admin.getStatus();
-            this.lastLogin = admin.getLastLogin();
+            this.adminLevel = admin.getAdminLevel().name();
+            this.status = admin.getStatus().name();
             this.canManageAdmins = admin.canManageAdmins();
+            this.lastLogin = admin.getLastLogin();
+            this.loginTime = LocalDateTime.now();
         }
     }
 }
