@@ -24,8 +24,14 @@ const GenericDetailPage = () => {
     usage: "Not available",
     side_effects: "Not available",
   };
+  console.log("djhnkjd", typeof generic.description, generic.description);
   try {
     parsedDescription = JSON.parse(generic.description);
+    console.log(
+      "Parsed description:",
+      parsedDescription,
+      typeof parsedDescription
+    );
     if (!parsedDescription.usage || !parsedDescription.side_effects) {
       throw new Error("Missing usage or side_effects in description");
     }

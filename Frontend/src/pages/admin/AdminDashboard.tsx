@@ -314,8 +314,8 @@ const AdminDashboard = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const canPerformAdminActions = adminData?.adminLevel === 'ROOT_ADMIN';
-
+  const canPerformAdminActions = (adminData?.adminLevel === 'ROOT_ADMIN')||((adminData?.adminLevel === 'ADMIN'));
+  // const canPerformAdminActions = true;
   useEffect(() => {
     const data = JSON.parse(localStorage.getItem('adminData') || 'null') as AdminData | null;
     const token = localStorage.getItem('adminJwtToken');
@@ -481,7 +481,7 @@ const AdminDashboard = () => {
         <div className="px-4 py-6 sm:px-0">
           <Routes>
             <Route path="/" element={<OverviewTab adminData={adminData} admins={admins} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} />} />
-            <Route path="/admins" element={<AdminsTab adminData={adminData} admins={admins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} canPerformAdminActions={canPerformAdminActions} handleSuspendAdmin={handleSuspendAdmin} />} />
+            <Route path="/admins" element={<AdminsTab adminData={adminData} admins={admins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} handleSuspendAdmin={handleSuspendAdmin} />} />
             <Route path="/pending-approval" element={<PendingApprovalsTab adminData={adminData} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} canPerformAdminActions={canPerformAdminActions} handleApproveAdmin={handleApproveAdmin} />} />
             <Route path="/medicines" element={<MedicinesTab adminData={adminData} medicines={medicines} formatDate={formatDate} showConfirmation={showConfirmation} canPerformAdminActions={canPerformAdminActions} />} />
             <Route path="/medicines/add" element={<AddMedicineForm />} />

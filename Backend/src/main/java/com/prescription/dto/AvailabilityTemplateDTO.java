@@ -1,5 +1,6 @@
 package com.prescription.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.prescription.entity.AvailabilityTemplate;
 import lombok.Data;
 
@@ -18,6 +19,7 @@ public class AvailabilityTemplateDTO {
     private LocalDate startDate;
     private LocalDate endDate;
     private Set<LocalDate> specificDates;
+    @JsonProperty("isActive")
     private boolean isActive;
     private Integer priority;
 }

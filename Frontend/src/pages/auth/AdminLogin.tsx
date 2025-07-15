@@ -24,7 +24,7 @@ const AdminLogin = () => {
     } else if (adminData.status === 'SUSPENDED') {
       navigate('/admin/suspended');
     } else {
-      navigate('/admin/dashboard');
+      navigate('/admin/');
     }
   }, [navigate]);
 
@@ -286,7 +286,7 @@ const AdminLogin = () => {
                     Authenticating...
                   </div>
                 ) : (
-                  'Sign In'
+                  'Log In'
                 )}
               </Button>
             </form>

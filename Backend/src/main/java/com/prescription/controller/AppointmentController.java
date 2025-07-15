@@ -47,7 +47,6 @@ public class AppointmentController {
         Map<String, Object> response = new HashMap<>();
         try {
             System.out.println(request);
-            System.out.println("-----------tusher mara khaw tumi--------------------------");
             // Validate patient and doctor exist
             Optional<User> patient = userService.getUserById((Long) request2.getAttribute("userId"));
             Optional<User> doctor = userService.getUserById(request.getDoctorId());

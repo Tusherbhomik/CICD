@@ -16,3 +16,6 @@ VALUES
     ('Amoxil', '500 mg', 'CAPSULE', 3, 12.99, 'GSK', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('Claritin', '10 mg', 'TABLET', 4, 9.99, 'Bayer', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('Zyrtec', '10 mg', 'TABLET', 4, 10.49, 'Johnson & Johnson', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+
+Get recent patients of a Doctor ->  Doctor  id  appointment / prescription table  --> sort --> Top 5 

@@ -37,11 +37,10 @@ interface AdminsTabProps {
   getStatusBadge: (status: Admin['status']) => string;
   showConfirmation: (title: string, message: string, onConfirm: () => void, type: 'approve' | 'suspend' | 'activate') => void;
   actionLoading: { [key: string]: boolean };
-  canPerformAdminActions: boolean;
   handleSuspendAdmin: (adminId: number, adminName: string) => Promise<void>;
 }
 
-const AdminsTab = ({ adminData, admins, formatDate, getAdminLevelBadge, getStatusBadge, showConfirmation, actionLoading, canPerformAdminActions, handleSuspendAdmin }: AdminsTabProps) => {
+const AdminsTab = ({ adminData, admins, formatDate, getAdminLevelBadge, getStatusBadge, showConfirmation, actionLoading,handleSuspendAdmin }: AdminsTabProps) => {
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
@@ -55,9 +54,7 @@ const AdminsTab = ({ adminData, admins, formatDate, getAdminLevelBadge, getStatu
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Login</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                {canPerformAdminActions && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                )}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -79,52 +76,50 @@ const AdminsTab = ({ adminData, admins, formatDate, getAdminLevelBadge, getStatu
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(admin.lastLogin)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(admin.createdAt)}</td>
-                  {canPerformAdminActions && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                      {admin.adminLevel !== 'ROOT_ADMIN' && admin.id !== adminData.id && (
-                        <>
-                          {admin.status === 'ACTIVE' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-600 hover:bg-red-50"
-                              onClick={() => showConfirmation(
-                                'Suspend Admin',
-                                `Are you sure you want to suspend ${admin.name}? They will lose access to the admin panel.`,
-                                () => handleSuspendAdmin(admin.id, admin.name),
-                                'suspend'
-                              )}
-                              disabled={actionLoading[`suspend-${admin.id}`]}
-                            >
-                              {actionLoading[`suspend-${admin.id}`] ? 'Suspending...' : 'Suspend'}
-                            </Button>
-                          )}
-                          {admin.status === 'SUSPENDED' && (
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              onClick={() => showConfirmation(
-                                'Activate Admin',
-                                `Are you sure you want to reactivate ${admin.name}? They will regain access to the admin panel.`,
-                                () => {
-                                  console.log('Activate functionality to be implemented');
-                                },
-                                'activate'
-                              )}
-                            >
-                              Activate
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      {admin.adminLevel === 'ROOT_ADMIN' && (
-                        <span className="text-xs text-gray-500">Protected</span>
-                      )}
-                      {admin.id === adminData.id && (
-                        <span className="text-xs text-gray-500">You</span>
-                      )}
-                    </td>
-                  )}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                    {admin.adminLevel !== 'ROOT_ADMIN' && admin.id !== adminData.id && (
+                      <>
+                        {admin.status === 'ACTIVE' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 border-red-600 hover:bg-red-50"
+                            onClick={() => showConfirmation(
+                              'Suspend Admin',
+                              `Are you sure you want to suspend ${admin.name}? They will lose access to the admin panel.`,
+                              () => handleSuspendAdmin(admin.id, admin.name),
+                              'suspend'
+                            )}
+                            disabled={actionLoading[`suspend-${admin.id}`]}
+                          >
+                            {actionLoading[`suspend-${admin.id}`] ? 'Suspending...' : 'Suspend'}
+                          </Button>
+                        )}
+                        {admin.status === 'SUSPENDED' && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => showConfirmation(
+                              'Activate Admin',
+                              `Are you sure you want to reactivate ${admin.name}? They will regain access to the admin panel.`,
+                              () => {
+                                console.log('Activate functionality to be implemented');
+                              },
+                              'activate'
+                            )}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {admin.adminLevel === 'ROOT_ADMIN' && (
+                      <span className="text-xs text-gray-500">Protected</span>
+                    )}
+                    {admin.id === adminData.id && (
+                      <span className="text-xs text-gray-500">You</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

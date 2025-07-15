@@ -21,6 +21,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findById(Long id);
 
+    //find recent patient
+
+
 //    List<User> findByRoleAndAvailable(String role, boolean available);
 
     //List<User> findByRoleAndSpecializationContainingIgnoreCaseAndAvailable(String role, String specialization, boolean available);
