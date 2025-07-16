@@ -16,38 +16,40 @@ const Login = () => {
   const [role, setRole] = useState('patient');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    try {
-      // Login and get response with user data (cookie is set automatically by browser)
-      const response = await authApi.login(email, password, role);
-      
-      // Store user role for routing (only store role, not token)
-      localStorage.setItem('userRole', response.user.role.toLowerCase());
-      
-      toast({
-        title: "Login successful",
-        description: "Redirecting you to your dashboard...",
-      });
-      
-      // Route based on user role from the login response
-      if (response.user.role.toLowerCase() === 'doctor') {
-        navigate('/doctor/dashboard');
-      } else {
-        navigate('/patient/dashboard');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+
+  try {
+    // Login and get response with user data (cookie is set automatically by browser)
+    const response = await authApi.login(email, password, role);
+
+    // Store user role for routing (only store role, not token)
+    localStorage.setItem('userRole', response.user.role.toLowerCase());
+
+    toast({
+      title: "Login successful",
+      description: "Redirecting you to your dashboard...",
+    });
+
+    // Route based on user role from the login response
+    if (response.user.role.toLowerCase() === 'doctor') {
+      navigate('/doctor/dashboard');
+    } else {
+      navigate('/patient/dashboard');
     }
-  };
+  } catch (error: unknown) {
+    // Type guard to safely access error.message
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    toast({
+      title: "Login failed",
+      description: errorMessage,
+      variant: "destructive"
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   
   return (
     <div className="min-h-screen bg-[#f7fbff] flex flex-col">
@@ -135,6 +137,30 @@ const Login = () => {
                 </p>
               </div>
             </form>
+          </div>
+          
+          {/* Admin Access Section */}
+          <div className="mt-6 text-center">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-[#f7fbff] text-gray-500">or</span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-sm text-gray-600 mb-2">Are you an admin?</p>
+              <Link 
+                to="/admin/login" 
+                className="inline-flex items-center text-sm font-medium text-red-600 hover:text-red-700 hover:underline"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Admin Access
+              </Link>
+            </div>
           </div>
         </div>
       </main>

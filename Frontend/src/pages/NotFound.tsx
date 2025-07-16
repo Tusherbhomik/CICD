@@ -2,7 +2,6 @@
 import { useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import PageLayout from '@/components/layout/PageLayout';
 
 const NotFound = () => {
   const location = useLocation();
@@ -15,7 +14,6 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <PageLayout>
       <div className="medical-container py-16 flex items-center justify-center">
         <div className="text-center max-w-md">
           <h1 className="text-7xl font-bold text-medical-primary mb-4">404</h1>
@@ -39,7 +37,6 @@ const NotFound = () => {
           </div>
         </div>
       </div>
-    </PageLayout>
   );
 };
 

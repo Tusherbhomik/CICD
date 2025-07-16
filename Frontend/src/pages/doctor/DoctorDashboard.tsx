@@ -8,8 +8,11 @@ import {
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/url";
 
 const DoctorDashboard = () => {
+  const [recentPatient, setPatients] = useState([]);
   const stats = [
     {
       title: "Total Patients",
@@ -26,19 +29,12 @@ const DoctorDashboard = () => {
       color: "text-green-500",
     },
     {
-      title: "Pending Prescriptions",
+      title: "Total Prescriptions",
       value: "12",
       change: "-3",
       icon: FileText,
       color: "text-orange-500",
-    },
-    {
-      title: "Average Wait Time",
-      value: "15m",
-      change: "-5m",
-      icon: Clock,
-      color: "text-purple-500",
-    },
+    }
   ];
 
   const recentPatients = [
@@ -65,6 +61,35 @@ const DoctorDashboard = () => {
     },
   ];
 
+  const fetchRecentPatients = async () => {
+        
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/doctors/recent-patients`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error("Failed to fetch patients");
+          }
+          const data= await response.json();
+          console.log("Recent Patients Data:", data);
+          // setPatients(data || []);
+          // setFilteredPatients(data || []);
+        } catch (error) {
+          console.error("Error fetching patients:", error);
+          // toast({
+          //   title: "Error",
+          //   description: "Could not fetch patients list. Please try again later.",
+          //   variant: "destructive",
+          // });
+          setPatients([]);
+        } finally {
+          // setIsLoadingPatients(false);
+        }
+      };
+      useEffect(() => {
+        fetchRecentPatients();
+      }, []);
   return (
     <MainLayout userType="doctor">
       <div className="space-y-8">
@@ -75,7 +100,7 @@ const DoctorDashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
@@ -89,11 +114,11 @@ const DoctorDashboard = () => {
                     <Icon className={cn("w-6 h-6", stat.color)} />
                   </div>
                 </div>
-                <div className="flex items-center mt-4 text-sm">
+                {/* <div className="flex items-center mt-4 text-sm">
                   <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                   <span className="text-green-500">{stat.change}</span>
                   <span className="text-gray-500 ml-1">from last month</span>
-                </div>
+                </div> */}
               </div>
             );
           })}

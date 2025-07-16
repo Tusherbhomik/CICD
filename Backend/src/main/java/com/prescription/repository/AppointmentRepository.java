@@ -1,6 +1,7 @@
 package com.prescription.repository;
 
 import com.prescription.entity.Appointment;
+import com.prescription.entity.Medicine;
 import com.prescription.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -47,4 +48,13 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     @Query("SELECT COUNT(DISTINCT a.patient) FROM Appointment a WHERE a.doctor = :doctor")
     Long countUniquePatientsForDoctor(@Param("doctor") User doctor);
+
+    //
+//    @Query("SELECT a.patient FROM Appointment a JOIN a.patient p WHERE " +
+//            "a.doctor= :doctor order by a.createdAt")
+//    List<User> findRecentPatientsFromDoctor(@Param("doctor") User doctor);
+
+    @Query("SELECT a.patient FROM Appointment a JOIN a.patient p WHERE a.doctor = :doctor ORDER BY a.createdAt")
+    List<User> findRecentPatientsFromDoctor(@Param("doctor") User doctor);
+
 }

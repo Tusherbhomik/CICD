@@ -130,10 +130,11 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-gray-100 rounded-lg relative">
+            {/* <button className="p-2 hover:bg-gray-100 rounded-lg relative">
               <Bell className="w-6 h-6 text-gray-600" />
+              <span>Hi</span>
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            </button> */}
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"

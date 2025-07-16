@@ -52,6 +52,8 @@ public class Medicine {
 
     // Constructors
     public Medicine() {
+        // Fallback to ensure updated_at is set if auditing fails
+        this.updatedAt = LocalDateTime.now();
     }
 
     public Medicine(String name, String strength, Form form, MedicineGeneric medicineGeneric, BigDecimal price) {
@@ -60,79 +62,38 @@ public class Medicine {
         this.form = form;
         this.medicineGeneric = medicineGeneric;
         this.price = price;
+        this.updatedAt = LocalDateTime.now(); // Fallback
     }
 
     // Getters and Setters
-    public Long getId() {
-        return id;
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getStrength() { return strength; }
+    public void setStrength(String strength) { this.strength = strength; }
+    public Form getForm() { return form; }
+    public void setForm(Form form) { this.form = form; }
+    public MedicineGeneric getMedicineGeneric() { return medicineGeneric; }
+    public void setMedicineGeneric(MedicineGeneric medicineGeneric) { this.medicineGeneric = medicineGeneric; }
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+    public String getManufacturer() { return manufacturer; }
+    public void setManufacturer(String manufacturer) { this.manufacturer = manufacturer; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) this.createdAt = LocalDateTime.now();
+        if (this.updatedAt == null) this.updatedAt = LocalDateTime.now(); // Fallback for initial insert
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getStrength() {
-        return strength;
-    }
-
-    public void setStrength(String strength) {
-        this.strength = strength;
-    }
-
-    public Form getForm() {
-        return form;
-    }
-
-    public void setForm(Form form) {
-        this.form = form;
-    }
-
-    public MedicineGeneric getMedicineGeneric() {
-        return medicineGeneric;
-    }
-
-    public void setMedicineGeneric(MedicineGeneric medicineGeneric) {
-        this.medicineGeneric = medicineGeneric;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public String getManufacturer() {
-        return manufacturer;
-    }
-
-    public void setManufacturer(String manufacturer) {
-        this.manufacturer = manufacturer;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     // Enum

@@ -62,12 +62,15 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/auth/**").permitAll()
-                                .requestMatchers("/api/h2-console/**").permitAll()
+                                auth.requestMatchers("/auth/**").permitAll()
+                                        .requestMatchers("/admin/login", "/admin/signup", "/admin/root-exists", "/admin/tusher","/admin/pending").permitAll() // Add these
+                                        .requestMatchers("/api/**").permitAll()
+                                        .requestMatchers("/api/h2-console/**").permitAll()
+                                        .requestMatchers("/h2-console/**").permitAll() // Add this for H2 console
 //                                .requestMatchers("/medicines/search/**").hasRole("DOCTOR")
 //                                .requestMatchers("/patients/**").hasRole("DOCTOR")
 //                                .requestMatchers("/api/appointments/request").hasAnyRole("PATIENT") // Allow patients and doctors
-                                .anyRequest().authenticated()
+                                        .anyRequest().authenticated()
                 )
                 .headers(headers -> headers
                         .frameOptions(frame -> frame.sameOrigin()) // Allow same-origin framing for H2 Console
