@@ -55,6 +55,56 @@ export const authApi = {
     const response = await apiClient.get(`/auth/me`);
     return response.data;
   },
+
+  // Forgot password - send reset email
+  forgotPassword: async (email) => {
+    const response = await fetch(`${BASE_URL}/auth/password/forgot`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(errorData || 'Failed to send reset email');
+    }
+
+    return response.text();
+  },
+
+  // Reset password with token
+  resetPassword: async (token, newPassword) => {
+    const response = await fetch(`${BASE_URL}/auth/password/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token, newPassword }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(errorData || 'Failed to reset password');
+    }
+
+    return response.text();
+  },
+
+  // Validate reset token
+  validateResetToken: async (token) => {
+    const response = await fetch(`${BASE_URL}/auth/password/validate-token?token=${token}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(errorData || 'Invalid or expired token');
+    }
+
+    return response.text();
+  },
 };
 
 export default apiClient;

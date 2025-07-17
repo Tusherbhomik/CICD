@@ -4,6 +4,7 @@ package com.prescription.service;
 import com.prescription.entity.AppointmentSettings;
 import com.prescription.entity.User;
 import com.prescription.repository.AppointmentSettingsRepository;
+import com.prescription.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.util.Optional;
 public class AppointmentSettingsService {
 
     private final AppointmentSettingsRepository appointmentSettingsRepository;
+    private final UserRepository userRepository;
 
     /**
      * Get appointment settings for a specific doctor
@@ -80,8 +82,7 @@ public class AppointmentSettingsService {
         AppointmentSettings defaultSettings = new AppointmentSettings();
 
         // Create a User object with the doctor ID (you might need to fetch the full User entity)
-        User doctor = new User();
-        doctor.setId(doctorId);
+        User doctor = userRepository.findById(doctorId).get();
         defaultSettings.setDoctor(doctor);
 
         // Set default values
