@@ -8,6 +8,8 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.prescription.service.NotificationService;
+import com.prescription.entity.Notification;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +25,9 @@ public class AppointmentService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     // Existing methods from previous implementation...
 
@@ -61,6 +66,31 @@ public class AppointmentService {
                             appointment.getStatus() == Appointment.Status.SCHEDULED)) {
                 appointment.setStatus(Appointment.Status.CANCELLED);
                 appointmentRepository.save(appointment);
+
+                // Send cancellation notifications
+                try {
+                    String cancellationMessage = String.format("Appointment scheduled for %s has been cancelled by the patient.",
+                            appointment.getScheduledTime() != null ? appointment.getScheduledTime().toString() : "TBD");
+
+                    // Notify doctor about cancellation
+                    notificationService.sendAppointmentNotification(
+                            appointment.getDoctor().getId(),
+                            appointmentId,
+                            Notification.NotificationType.APPOINTMENT_CANCELLATION,
+                            cancellationMessage
+                    );
+
+                    // Notify patient about cancellation confirmation
+                    notificationService.sendAppointmentNotification(
+                            patientId,
+                            appointmentId,
+                            Notification.NotificationType.APPOINTMENT_CANCELLATION,
+                            "Your appointment has been successfully cancelled."
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to send cancellation notifications: " + e.getMessage());
+                }
+
                 return true;
             }
         }
@@ -75,6 +105,22 @@ public class AppointmentService {
                     appointment.getStatus() == Appointment.Status.REQUESTED) {
                 appointment.setStatus(Appointment.Status.CANCELLED);
                 appointmentRepository.save(appointment);
+
+                // Send rejection notification to patient
+                try {
+                    String rejectionMessage = String.format("Your appointment request for %s has been declined by Dr. %s. Please contact the clinic for alternative options.",
+                            appointment.getFollowupDate() != null ? appointment.getFollowupDate().toString() : "the requested time",
+                            appointment.getDoctor().getName());
+                    notificationService.sendAppointmentNotification(
+                            appointment.getPatient().getId(),
+                            appointmentId,
+                            Notification.NotificationType.APPOINTMENT_CANCELLATION,
+                            rejectionMessage
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to send rejection notification: " + e.getMessage());
+                }
+
                 return true;
             }
         }
@@ -191,24 +237,47 @@ public class AppointmentService {
     }
 
     // Patient requests appointment (existing method enhanced)
-    public Appointment requestAppointment( Long doctorId,Long patientId, LocalDate appointmentDate,
-                                          LocalTime appointmentTime, Appointment.Type type, String reason) {
+    public Appointment requestAppointment(Long doctorId, Long patientId, LocalDate appointmentDate,
+                                    LocalTime appointmentTime, Appointment.Type type, String reason) {
         User doctor = userRepository.findById(doctorId)
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
         User patient = userRepository.findById(patientId)
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
 
-
-        //   needs to be checked here //
-
-        Appointment appointment = new Appointment(LocalDateTime.of(appointmentDate,appointmentTime) , type, doctor, patient);
+        Appointment appointment = new Appointment(LocalDateTime.of(appointmentDate, appointmentTime), type, doctor, patient);
         appointment.setNotes(reason);
-        appointment.setFollowupDate(LocalDateTime.of(appointmentDate,appointmentTime));
+        appointment.setFollowupDate(LocalDateTime.of(appointmentDate, appointmentTime));
         appointment.setCreatedAt(LocalDateTime.now());
         appointment.setUpdatedAt(LocalDateTime.now());
-        //appointment.setStatus(Appointment.Status.s);
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // Send notifications after successful booking
+        try {
+            // Notify the patient about appointment request
+            String patientMessage = String.format("Your appointment request with Dr. %s for %s at %s has been submitted and is pending confirmation.",
+                    doctor.getName(), appointmentDate.toString(), appointmentTime.toString());
+            notificationService.sendAppointmentNotification(
+                    patientId,
+                    savedAppointment.getId(),
+                    Notification.NotificationType.APPOINTMENT_CONFIRMATION,
+                    patientMessage
+            );
+
+            // Notify the doctor about new appointment request
+            String doctorMessage = String.format("New appointment request from %s for %s at %s. Please review and confirm.",
+                    patient.getName(), appointmentDate.toString(), appointmentTime.toString());
+            notificationService.sendAppointmentNotification(
+                    doctorId,
+                    savedAppointment.getId(),
+                    Notification.NotificationType.APPOINTMENT_CONFIRMATION,
+                    doctorMessage
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send appointment booking notifications: " + e.getMessage());
+        }
+
+        return savedAppointment;
     }
 
     // Doctor gets pending requests (existing method)
@@ -220,7 +289,7 @@ public class AppointmentService {
 
     // Doctor schedules appointment (existing method enhanced)
     public Appointment scheduleAppointment(Long appointmentId, LocalDateTime scheduledTime,
-                                           Appointment.Type type, String location, String notes) {
+                                     Appointment.Type type, String location, String notes) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found"));
 
@@ -247,7 +316,23 @@ public class AppointmentService {
         appointment.setNotes(notes);
         appointment.setStatus(Appointment.Status.SCHEDULED);
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // Send confirmation notification to patient
+        try {
+            String confirmationMessage = String.format("Your appointment has been confirmed for %s. Location: %s. Notes: %s",
+                    scheduledTime.toString(), location != null ? location : "TBD", notes != null ? notes : "None");
+            notificationService.sendAppointmentNotification(
+                    appointment.getPatient().getId(),
+                    appointmentId,
+                    Notification.NotificationType.APPOINTMENT_CONFIRMATION,
+                    confirmationMessage
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send appointment confirmation notification: " + e.getMessage());
+        }
+
+        return savedAppointment;
     }
 
     // Get confirmed appointments (existing method)

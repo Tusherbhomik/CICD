@@ -29,7 +29,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-
+        if (request.getRequestURI().startsWith("/ws/")) {
+            filterChain.doFilter(request, response); // Skip JWT processing
+            return;
+        }
         String jwt = getJwtFromRequest(request);
 
         if (StringUtils.hasText(jwt) && jwtUtil.validateToken(jwt)) {
@@ -77,5 +80,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         return null;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+
+        // Skip JWT filter for WebSocket endpoints
+        return path.startsWith("/ws") ||
+                path.contains("/sockjs-node") ||
+                path.contains("sockjs") ||
+                "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 }

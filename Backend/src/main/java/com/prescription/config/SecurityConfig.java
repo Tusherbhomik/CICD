@@ -48,10 +48,20 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:8081","http://localhost:3000","http://74.225.140.65:3000","http://healthsyn.me:3000"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:3000",
+                "http://localhost:8081",
+                "http://localhost:8080",
+                "http://74.225.140.65:3000",
+                "http://healthsyn.me:3000",
+                "http://172.19.102.152:8081",
+                "http://127.0.0.1:8081:8081",
+                "http://172.19.111.255:8081"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -65,20 +75,24 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
-                                auth
-                                        .requestMatchers("/auth/**").permitAll()
-                                        .requestMatchers("/auth/password/**").permitAll() // Add this line
-                                        .requestMatchers("/admin/login", "/admin/signup", "/admin/root-exists", "/admin/tusher","/admin/pending").permitAll() // Add these
-                                        .requestMatchers("/api/**").permitAll()
-                                        .requestMatchers("/api/h2-console/**").permitAll()
-                                        .requestMatchers("/h2-console/**").permitAll() // Add this for H2 console
-//                                .requestMatchers("/medicines/search/**").hasRole("DOCTOR")
-//                                .requestMatchers("/patients/**").hasRole("DOCTOR")
-//                                .requestMatchers("/api/appointments/request").hasAnyRole("PATIENT") // Allow patients and doctors
-                                        .anyRequest().authenticated()
+                        auth
+                                // WebSocket endpoints - PUT THESE FIRST
+                                .requestMatchers("/ws").permitAll()
+                                .requestMatchers("/ws/**").permitAll()
+                                .requestMatchers("/sockjs-node/**").permitAll()
+                                // Auth endpoints
+                                .requestMatchers("/auth/**").permitAll()
+                                .requestMatchers("/auth/password/**").permitAll()
+                                // Admin endpoints
+                                .requestMatchers("/admin/login", "/admin/signup", "/admin/root-exists", "/admin/tusher", "/admin/pending").permitAll()
+                                // API endpoints
+                                .requestMatchers("/api/**").permitAll()
+                                .requestMatchers("/api/h2-console/**").permitAll()
+                                .requestMatchers("/h2-console/**").permitAll()
+                                .anyRequest().authenticated()
                 )
                 .headers(headers -> headers
-                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin) // Allow same-origin framing for H2 Console
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                 );
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
