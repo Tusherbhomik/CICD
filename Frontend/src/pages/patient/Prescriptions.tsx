@@ -1,5 +1,5 @@
 import MainLayout from "@/components/layout/MainLayout";
-import { API_BASE_URL } from '@/url';
+import { API_BASE_URL } from "@/url";
 import {
   AlertCircle,
   Calendar,
@@ -42,7 +42,7 @@ const Prescriptions = () => {
         const data = await response.json();
         setPrescriptions(data);
       } catch (err) {
-        setError(err.message);
+        setError((err as any).message);
         console.error("Error fetching prescriptions:", err);
       } finally {
         setLoading(false);

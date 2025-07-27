@@ -24,15 +24,21 @@ const GenericDetailPage = () => {
     usage: "Not available",
     side_effects: "Not available",
   };
-  try {
-    parsedDescription = JSON.parse(generic.description);
-    if (!parsedDescription.usage || !parsedDescription.side_effects) {
-      throw new Error("Missing usage or side_effects in description");
-    }
-  } catch (error) {
-    console.error("Failed to parse description:", error);
-    setParseError("Unable to load description details");
-  }
+  console.log("djhnkjd", typeof generic.description, generic.description);
+  // try {
+  //   parsedDescription = JSON.parse(generic.description);
+  //   console.log(
+  //     "Parsed description:",
+  //     parsedDescription,
+  //     typeof parsedDescription
+  //   );
+  //   if (!parsedDescription.usage || !parsedDescription.side_effects) {
+  //     throw new Error("Missing usage or side_effects in description");
+  //   }
+  // } catch (error) {
+  //   console.error("Failed to parse description:", error);
+  //   setParseError("Unable to load description details");
+  // }
 
   const sections = [
     { title: "Indications", content: parsedDescription.usage },

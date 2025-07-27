@@ -1,5 +1,5 @@
 import MainLayout from "@/components/layout/MainLayout";
-import { API_BASE_URL } from '@/url';
+import { API_BASE_URL } from "@/url";
 import {
   AlertCircle,
   Calendar,
@@ -45,7 +45,7 @@ const DoctorPrescriptions = () => {
         const data = await response.json();
         setPrescriptions(data);
       } catch (err) {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : String(err));
         console.error("Error fetching prescriptions:", err);
       } finally {
         setLoading(false);
@@ -58,8 +58,6 @@ const DoctorPrescriptions = () => {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString();
   };
-
-  //you fool how dare you use this logic?//
 
   const getMedicationStatus = (prescription) => {
     const today = new Date();
@@ -106,166 +104,172 @@ const DoctorPrescriptions = () => {
       // Header
       doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
-      doc.text("Medical Prescription", pageWidth / 2, yPosition, {
+      doc.setTextColor(165, 0, 0); // Red color for "Doctor's Medical Prescription"
+      doc.text("Doctor's Medical Prescription", pageWidth / 2, yPosition, {
         align: "center",
       });
-
       yPosition += 15;
-      doc.setFontSize(16);
-      doc.text(`Prescription #${prescription.id}`, pageWidth / 2, yPosition, {
-        align: "center",
-      });
 
-      // Draw line
-      yPosition += 10;
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 20;
-
-      // Patient and Doctor Info
+      // Patient Info
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-
-      const info = [
-        `Patient: ${prescription.patient.name}`,
-        `Doctor: ${prescription.doctor.name}`,
-        `Issue Date: ${formatDate(prescription.issueDate)}`,
-        `Follow-up Date: ${formatDate(prescription.followUpDate)}`,
-        `Diagnosis: ${prescription.diagnosis}`,
-      ];
-
-      info.forEach((text) => {
-        doc.text(text, margin, yPosition);
-        yPosition += 8;
-      });
-
+      doc.setTextColor(0, 0, 0); // Black text
+      doc.text(
+        `Patient's Name: ${prescription.patient.name}`,
+        margin,
+        yPosition
+      );
+      yPosition += 8;
+      doc.text(
+        `Date: ${formatDate(prescription.issueDate)}`,
+        pageWidth - margin,
+        yPosition,
+        { align: "right" }
+      );
+      yPosition += 10;
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("S/o | D/o | W/o:", margin, yPosition + 6);
+      yPosition += 8;
+      doc.setFillColor(255, 255, 224); // Light yellow
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Date of Birth:", margin, yPosition + 6);
+      doc.text("Age:", margin + 40, yPosition + 6);
+      doc.text("Sex:", margin + 70, yPosition + 6);
+      doc.text("Occupation:", margin + 100, yPosition + 6);
+      yPosition += 8;
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Health Insurance No:", margin, yPosition + 6);
+      doc.text(
+        `Health Care Provider: ${prescription.doctor.name}`,
+        margin + 80,
+        yPosition + 6
+      );
+      yPosition += 8;
+      doc.setFillColor(255, 255, 224); // Light yellow
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Health Card No:", margin, yPosition + 6);
+      doc.text("Patient ID No:", margin + 80, yPosition + 6);
+      yPosition += 8;
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Patient's Address:", margin, yPosition + 6);
+      yPosition += 8;
+      doc.setFillColor(255, 255, 224); // Light yellow
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Cell No:", margin, yPosition + 6);
       yPosition += 10;
 
-      // Medicines Header
-      doc.setFontSize(14);
+      // Diagnosis
+      doc.setFillColor(255, 255, 224); // Light yellow
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 16, "F");
       doc.setFont("helvetica", "bold");
-      doc.text("Prescribed Medications:", margin, yPosition);
-      yPosition += 15;
+      doc.text("Diagnosed With:", margin, yPosition + 6);
+      yPosition += 8;
+      doc.setFont("helvetica", "normal");
+      doc.text(prescription.diagnosis, margin, yPosition + 6);
+      yPosition += 10;
 
-      // Medicines
-      prescription.medicines.forEach((med: any, index: number) => {
-        // Check if we need a new page
+      // Vital Signs
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Blood Pressure:", margin, yPosition + 6);
+      doc.text("Pulse Rate:", margin + 60, yPosition + 6);
+      doc.text("Weight:", margin + 120, yPosition + 6);
+      yPosition += 10;
+
+      // Allergies and Disabilities
+      doc.setFillColor(255, 255, 224); // Light yellow
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Allergies:", margin, yPosition + 6);
+      doc.text("Disabilities If any:", margin + 60, yPosition + 6);
+      yPosition += 10;
+
+      // Medications
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.text("Drugs", margin, yPosition + 6);
+      doc.text("Unit (Tablet / Syrup)", margin + 60, yPosition + 6);
+      doc.text("Dosage (Per Day)", margin + 120, yPosition + 6);
+      yPosition += 8;
+
+      prescription.medicines.forEach((med, index) => {
         if (yPosition > 250) {
           doc.addPage();
           yPosition = 30;
-        }
-
-        // Medicine name
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${index + 1}. ${med.medicine.name}`, margin, yPosition);
-        yPosition += 8;
-
-        // Medicine details
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-
-        const details = [
-          `Generic Name: ${med.medicine.genericName}`,
-          `Strength: ${med.medicine.strength}`,
-          `Form: ${med.medicine.form}`,
-          `Duration: ${med.durationDays} days`,
-          `Manufacturer: ${med.medicine.manufacturer}`,
-          `Price: ৳${med.medicine.price}`,
-        ];
-
-        details.forEach((detail) => {
-          doc.text(detail, margin + 10, yPosition);
-          yPosition += 6;
-        });
-
-        // Timing information
-        yPosition += 5;
-        doc.setFont("helvetica", "bold");
-        doc.text("Dosage Schedule:", margin + 10, yPosition);
-        yPosition += 6;
-
-        doc.setFont("helvetica", "normal");
-        med.timings.forEach((timing: any) => {
-          const timeText = `${timing.timeOfDay} at ${timing.specificTime} - ${
-            timing.amount
-          } ${med.medicine.form.toLowerCase()}`;
-          const mealText = `Take ${timing.mealRelation
-            .replace("_", " ")
-            .toLowerCase()}`;
-
-          doc.text(`• ${timeText}`, margin + 15, yPosition);
-          yPosition += 5;
-          doc.text(`  ${mealText}`, margin + 15, yPosition);
-          yPosition += 6;
-        });
-
-        // Special instructions
-        if (med.specialInstructions) {
-          yPosition += 3;
+          doc.setFillColor(173, 216, 230); // Light blue
+          doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
           doc.setFont("helvetica", "bold");
-          doc.text("Special Instructions:", margin + 10, yPosition);
-          yPosition += 6;
-          doc.setFont("helvetica", "normal");
-
-          // Split long text into multiple lines
-          const splitText = doc.splitTextToSize(
-            med.specialInstructions,
-            pageWidth - margin - 30
-          );
-          splitText.forEach((line: string) => {
-            doc.text(line, margin + 15, yPosition);
-            yPosition += 5;
-          });
+          doc.text("Drugs", margin, yPosition + 6);
+          doc.text("Unit (Tablet / Syrup)", margin + 60, yPosition + 6);
+          doc.text("Dosage (Per Day)", margin + 120, yPosition + 6);
+          yPosition += 8;
         }
-
-        yPosition += 10;
-      });
-
-      // Doctor's advice
-      if (prescription.advice) {
-        if (yPosition > 230) {
-          doc.addPage();
-          yPosition = 30;
-        }
-
-        yPosition += 10;
-        doc.setFont("helvetica", "bold");
-        doc.text("Doctor's Advice:", margin, yPosition);
-        yPosition += 8;
         doc.setFont("helvetica", "normal");
-
-        const splitAdvice = doc.splitTextToSize(
-          prescription.advice,
-          pageWidth - 2 * margin
+        if (index % 2 === 0) {
+          doc.setFillColor(255, 255, 224); // Light yellow
+        } else {
+          doc.setFillColor(173, 216, 230); // Light blue
+        }
+        doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+        doc.text(`${index + 1}. ${med.medicine.name}`, margin, yPosition + 6);
+        doc.text(med.medicine.form, margin + 60, yPosition + 6);
+        doc.text(
+          `${med.timings.reduce((sum, t) => sum + t.amount, 0)}`,
+          margin + 120,
+          yPosition + 6
         );
-        splitAdvice.forEach((line: string) => {
-          doc.text(line, margin, yPosition);
-          yPosition += 6;
-        });
-      }
+        yPosition += 8;
+      });
+      yPosition += 10;
+
+      // Diet
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.text("Diet To Follow:", margin, yPosition + 6);
+      yPosition += 8;
+      doc.setFont("helvetica", "normal");
+      yPosition += 10;
+
+      // History
+      doc.setFillColor(255, 255, 224); // Light yellow
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.text("Brief History of Patient:", margin, yPosition + 6);
+      yPosition += 8;
+      doc.setFont("helvetica", "normal");
+      yPosition += 10;
+
+      // Follow Up
+      doc.setFillColor(173, 216, 230); // Light blue
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.text("Follow Up Physician:", margin, yPosition + 6);
+      yPosition += 8;
+      doc.setFont("helvetica", "normal");
+      yPosition += 10;
 
       // Footer
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `Generated on ${new Date().toLocaleDateString()}`,
-          margin,
-          doc.internal.pageSize.getHeight() - 20
-        );
-        doc.text(
-          "This is a computer-generated prescription. Please consult your healthcare provider for any questions.",
-          margin,
-          doc.internal.pageSize.getHeight() - 12
-        );
-        doc.text(
-          `Page ${i} of ${totalPages}`,
-          pageWidth - margin - 20,
-          doc.internal.pageSize.getHeight() - 20
-        );
-      }
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0); // Black text
+      doc.text(
+        "Designed by Zee Que",
+        margin,
+        doc.internal.pageSize.getHeight() - 20
+      );
+      doc.text(
+        "Created with the Help of Doctors www.designbolts.com",
+        margin + 60,
+        doc.internal.pageSize.getHeight() - 20
+      );
+      doc.text(
+        "Signature of Physician:",
+        pageWidth - margin - 60,
+        doc.internal.pageSize.getHeight() - 20
+      );
 
       // Save the PDF
       const fileName = `Prescription_${
@@ -279,50 +283,50 @@ const DoctorPrescriptions = () => {
       console.error("Error generating PDF:", error);
       // Fallback to simple text download
       const textContent = `
-MEDICAL PRESCRIPTION
+Doctor's Medical Prescription
 
-Prescription #${prescription.id}
+Patient's Name: ${prescription.patient.name}
+Date: ${formatDate(prescription.issueDate)}
+S/o | D/o | W/o: 
+Date of Birth: 
+Age: 
+Sex: 
+Occupation: 
+Health Insurance No: 
+Health Care Provider: ${prescription.doctor.name}
+Health Card No: 
+Patient ID No: 
+Patient's Address: 
+Cell No: 
 
-Patient: ${prescription.patient.name}
-Doctor: ${prescription.doctor.name}
-Issue Date: ${formatDate(prescription.issueDate)}
-Follow-up Date: ${formatDate(prescription.followUpDate)}
-Diagnosis: ${prescription.diagnosis}
+Diagnosed With: ${prescription.diagnosis}
 
-PRESCRIBED MEDICATIONS:
+Blood Pressure: 
+Pulse Rate: 
+Weight: 
 
+Allergies: 
+Disabilities If any: 
+
+Drugs                 Unit (Tablet / Syrup)    Dosage (Per Day)
 ${prescription.medicines
   .map(
-    (med: any, index: number) => `
-${index + 1}. ${med.medicine.name}
-   Generic Name: ${med.medicine.genericName}
-   Strength: ${med.medicine.strength}
-   Form: ${med.medicine.form}
-   Duration: ${med.durationDays} days
-   
-   Dosage Schedule:
-${med.timings
-  .map(
-    (timing: any) => `   • ${timing.timeOfDay} at ${timing.specificTime} - ${
-      timing.amount
-    } ${med.medicine.form.toLowerCase()}
-     Take ${timing.mealRelation.replace("_", " ").toLowerCase()}`
-  )
-  .join("\n")}
-   
-   ${
-     med.specialInstructions
-       ? `Special Instructions: ${med.specialInstructions}`
-       : ""
-   }
-`
+    (med, index) =>
+      `${index + 1}. ${med.medicine.name}         ${
+        med.medicine.form
+      }         ${med.timings.reduce((sum, t) => sum + t.amount, 0)}`
   )
   .join("\n")}
 
-${prescription.advice ? `Doctor's Advice: ${prescription.advice}` : ""}
+Diet To Follow:
 
-Generated on ${new Date().toLocaleDateString()}
-This is a computer-generated prescription.
+Brief History of Patient:
+
+Follow Up Physician:
+
+Designed by Zee Que
+Created with the Help of Doctors www.designbolts.com
+Signature of Physician:
       `;
 
       const blob = new Blob([textContent], { type: "text/plain" });

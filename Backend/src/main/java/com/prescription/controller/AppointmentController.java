@@ -259,7 +259,7 @@ public class AppointmentController {
      * Doctor gets all appointments (any status)
      */
     @GetMapping("/doctor/all")
-    public ResponseEntity<List<AppointmentResponseDTO>> getAllDoctorAppointments(
+    public ResponseEntity<List<AppointmentResponseDTO>> getAllDotorAppoinctments(
             @RequestParam(required = false) String status,
             HttpServletRequest request) {
         try {

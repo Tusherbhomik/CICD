@@ -1,20 +1,34 @@
 package com.prescription.service;
 
-import com.prescription.entity.Appointment;
-import com.prescription.entity.User;
-import com.prescription.repository.AppointmentRepository;
-import com.prescription.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.*;
+import com.prescription.dto.AppointmentRequestDTO;
+import com.prescription.dto.AppointmentResponseDTO;
+import com.prescription.entity.Appointment;
+import com.prescription.entity.User;
+import com.prescription.repository.AppointmentRepository;
+import com.prescription.repository.DoctorRepository;
+import com.prescription.repository.PatientRepository;
+import com.prescription.repository.UserRepository;
+
+import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @Transactional
 public class AppointmentService {
 
@@ -22,7 +36,17 @@ public class AppointmentService {
     private AppointmentRepository appointmentRepository;
 
     @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private DoctorRepository doctorRepository;
+
+    @Autowired
+    private PatientRepository patientRepository;
+
 
     // Existing methods from previous implementation...
 
@@ -208,7 +232,16 @@ public class AppointmentService {
         appointment.setUpdatedAt(LocalDateTime.now());
         //appointment.setStatus(Appointment.Status.s);
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // Notify the doctor
+        notificationService.sendNotification(doctor, "You have a new appointment request from " + patient.getName() + " on " + savedAppointment.getScheduledTime().toLocalDate());
+
+        // Notify the patient
+        notificationService.sendNotification(patient, "Your appointment request with " + doctor.getName() + " has been sent.");
+
+
+        return savedAppointment;
     }
 
     // Doctor gets pending requests (existing method)
@@ -246,8 +279,20 @@ public class AppointmentService {
 
         appointment.setNotes(notes);
         appointment.setStatus(Appointment.Status.SCHEDULED);
+        appointment.setFollowupDate(LocalDateTime.of(appointmentRequestDTO.getAppointmentDate(), appointmentRequestDTO.getAppointmentTime()));
+        appointment.setCreatedAt(LocalDateTime.now());
+        appointment.setUpdatedAt(LocalDateTime.now());
 
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // Notify the doctor
+        notificationService.sendNotification(doctorUser, "Your appointment with " + patientUser.getName() + " has been scheduled for " + savedAppointment.getScheduledTime().toLocalDate());
+
+        // Notify the patient
+        notificationService.sendNotification(patientUser, "Your appointment with " + doctorUser.getName() + " has been scheduled for " + savedAppointment.getScheduledTime().toLocalDate());
+
+
+        return convertToDto(savedAppointment);
     }
 
     // Get confirmed appointments (existing method)
@@ -272,5 +317,34 @@ public class AppointmentService {
 
         return appointmentRepository.findByDoctorAndScheduledTimeBetweenOrderByScheduledTimeAsc(
                 doctor, startOfDay, endOfDay);
+    }
+
+    private AppointmentResponseDTO convertToDto(Appointment appointment) {
+        AppointmentResponseDTO dto = new AppointmentResponseDTO();
+        dto.setId(appointment.getId());
+        dto.setScheduledTime(appointment.getScheduledTime());
+        dto.setStatus(appointment.getStatus().toString());
+        dto.setType(appointment.getType().toString());
+        dto.setNotes(appointment.getNotes());
+        dto.setDoctor(getDoctorMap(appointment.getDoctor()));
+        dto.setPatient(getPatientMap(appointment.getPatient()));
+        dto.setFollowupDate(appointment.getFollowupDate());
+        dto.setCreatedAt(appointment.getCreatedAt());
+        dto.setUpdatedAt(appointment.getUpdatedAt());
+        return dto;
+    }
+
+    private Map<String, Object> getDoctorMap(User user) {
+        Map<String, Object> doctorMap = new HashMap<>();
+        doctorMap.put("id", user.getId());
+        doctorMap.put("name", user.getName());
+        return doctorMap;
+    }
+
+    private Map<String, Object> getPatientMap(User user) {
+        Map<String, Object> patientMap = new HashMap<>();
+        patientMap.put("id", user.getId());
+        patientMap.put("name", user.getName());
+        return patientMap;
     }
 }

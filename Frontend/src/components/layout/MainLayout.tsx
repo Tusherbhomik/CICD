@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils";
 import {
   Activity,
-  Bell,
   Calendar,
   FileText,
   LayoutDashboard,
@@ -15,7 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-
+import NotificationCenter from "../ui/NotificationCenter"; // Import NotificationCenter
 interface MainLayoutProps {
   children: React.ReactNode;
   userType: "doctor" | "patient";
@@ -130,10 +129,8 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-gray-100 rounded-lg relative">
-              <Bell className="w-6 h-6 text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            {/* Replace static Bell with NotificationCenter */}
+            <NotificationCenter />
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
