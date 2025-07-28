@@ -2,6 +2,7 @@ package com.prescription.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -58,5 +59,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     @Query("SELECT a.patient FROM Appointment a JOIN a.patient p WHERE a.doctor = :doctor ORDER BY a.createdAt")
     List<User> findRecentPatientsFromDoctor(@Param("doctor") User doctor);
+
+    @Query("SELECT DISTINCT a.patient.id FROM Appointment a WHERE a.doctor.id = :doctorId")
+    Set<Long> findPatientIdsByDoctorId(Long doctorId);
 
 }

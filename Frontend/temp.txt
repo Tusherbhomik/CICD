@@ -1,0 +1,46 @@
+chunk-RPCDYKBN.js?v=de8051cf:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+NotificationCenter.tsx:126 Setting up notifications...
+NotificationCenter.tsx:144 User profile fetched successfully
+NotificationCenter.tsx:149 User ID: 1
+NotificationCenter.tsx:61 Loading notifications...
+DoctorDashboard.tsx:35 doctor profile: 
+DoctorDashboard.tsx:36 {role: 'DOCTOR', gender: 'MALE', profileImage: null, birthDate: '2025-07-22', createdAt: '2025-07-28T16:14:23.361842', …}
+DoctorDashboard.tsx:69 paitent count: 
+DoctorDashboard.tsx:70 1
+DoctorDashboard.tsx:53 recent patients: 
+DoctorDashboard.tsx:54 [{…}]
+DoctorDashboard.tsx:85 confirmed appointments: 
+DoctorDashboard.tsx:86 [{…}]
+DoctorDashboard.tsx:103 prescriptions: 
+DoctorDashboard.tsx:104 [{…}]
+NotificationCenter.tsx:187 UserId state updated to: 1
+NotificationCenter.tsx:88 Notifications loaded: {success: true, unreadCount: 0, notifications: Array(1)}
+NotificationService.js:15 Connecting to WebSocket...
+NotificationService.js:24 STOMP: Opening Web Socket...
+NotificationService.js:24 STOMP: Web Socket Opened...
+NotificationService.js:24 STOMP: >>> CONNECT
+accept-version:1.2,1.1,1.0
+heart-beat:10000,10000
+
+
+NotificationService.js:24 STOMP: Received data
+NotificationService.js:24 STOMP: <<< CONNECTED
+user-name:doctor1@example.com
+heart-beat:0,0
+version:1.2
+content-length:0
+
+
+NotificationService.js:24 STOMP: connected to server undefined
+NotificationService.js:27 🔌 Connected to WebSocket: _FrameImpl {command: 'CONNECTED', headers: {…}, _binaryBody: Uint8Array(0), isBinaryBody: true, escapeHeaderValues: false, …}
+NotificationService.js:24 STOMP: >>> SUBSCRIBE
+id:sub-0
+destination:/queue/notifications
+
+
+NotificationService.js:100 📤 Sending connection test message
+NotificationService.js:24 STOMP: >>> SEND
+destination:/app/test
+content-length:79
+
+

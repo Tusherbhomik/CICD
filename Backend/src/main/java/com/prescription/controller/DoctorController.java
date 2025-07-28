@@ -6,10 +6,11 @@ import com.prescription.entity.Doctor;
 import com.prescription.entity.User;
 import com.prescription.repository.AppointmentRepository;
 import com.prescription.repository.DoctorRepository;
+import com.prescription.service.DoctorPatientInteractionService;
 import com.prescription.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,7 @@ public class DoctorController {
     private final DoctorRepository doctorRepository;
 
     private final AppointmentRepository appointmentRepository;
+    private final DoctorPatientInteractionService doctorPatientInteractionService;
 
 //    public DoctorController(UserService userService, DoctorRepository doctorRepository,AppointmentRepository appointmentRepository) {
 //        this.userService = userService;
@@ -97,15 +99,18 @@ public class DoctorController {
         return ResponseEntity.ok(recentPatients);
     }
 
+    @GetMapping("/patient-count")
+    public ResponseEntity<?> getPatientInteractionCount(HttpServletRequest request) {
+        System.out.println("I am batman");
+        Long doctorId =(Long) request.getAttribute("userId");
+        long count = doctorPatientInteractionService.getUniquePatientCount(doctorId);
+        return ResponseEntity.ok(count);
+    }
+
     // Helper class for error responses
+    @Data
+    @AllArgsConstructor
     public static class ErrorResponse {
         private String message;
-
-        public ErrorResponse(String message) {
-            this.message = message;
-        }
-
-        public String getMessage() { return message; }
-        public void setMessage(String message) { this.message = message; }
     }
 }

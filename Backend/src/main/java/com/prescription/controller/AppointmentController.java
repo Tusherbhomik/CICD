@@ -72,12 +72,9 @@ public class AppointmentController {
             Appointment appointment = appointmentService.requestAppointment(
                     request.getDoctorId(),
                     (Long) request2.getAttribute("userId"),
-
                     request.getAppointmentDate(),
                     request.getAppointmentTime(),
                     request.getType(),
-
-
                     request.getReason()
 
             );

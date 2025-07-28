@@ -3,6 +3,9 @@ package com.prescription.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -12,11 +15,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 // Prescription Entity
+@Data
 @Entity
 @Table(name = "prescriptions")
 @EntityListeners(AuditingEntityListener.class)
 public class Prescription {
 
+    // Getters and Setters
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -67,38 +72,5 @@ public class Prescription {
         this.patient = patient;
     }
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getDiagnosis() { return diagnosis; }
-    public void setDiagnosis(String diagnosis) { this.diagnosis = diagnosis; }
-
-    public LocalDate getIssueDate() { return issueDate; }
-    public void setIssueDate(LocalDate issueDate) { this.issueDate = issueDate; }
-
-    public LocalDate getFollowUpDate() { return followUpDate; }
-    public void setFollowUpDate(LocalDate followUpDate) { this.followUpDate = followUpDate; }
-
-    public String getAdvice() { return advice; }
-    public void setAdvice(String advice) { this.advice = advice; }
-
-    public User getDoctor() { return doctor; }
-    public void setDoctor(User doctor) { this.doctor = doctor; }
-
-    public User getPatient() { return patient; }
-    public void setPatient(User patient) { this.patient = patient; }
-
-    public Appointment getAppointment() { return appointment; }
-    public void setAppointment(Appointment appointment) { this.appointment = appointment; }
-
-    public List<PrescriptionMedicine> getPrescriptionMedicines() { return prescriptionMedicines; }
-    public void setPrescriptionMedicines(List<PrescriptionMedicine> prescriptionMedicines) { this.prescriptionMedicines = prescriptionMedicines; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
 

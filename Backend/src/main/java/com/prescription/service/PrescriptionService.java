@@ -110,7 +110,7 @@ public class PrescriptionService {
     }
 
     public List<PrescriptionDto> getPrescriptionsByDoctor(Long doctorId) {
-        List<Prescription> prescriptions = prescriptionRepository.findByDoctorId(doctorId);
+        List<Prescription> prescriptions = prescriptionRepository.findByDoctorIdOrderByUpdatedAtDesc(doctorId);
         List<PrescriptionDto> dtos = new ArrayList<>();
 
         for (Prescription prescription : prescriptions) {

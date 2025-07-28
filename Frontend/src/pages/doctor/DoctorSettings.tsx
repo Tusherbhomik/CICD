@@ -12,6 +12,22 @@ interface AppointmentSettings {
   bufferTimeMinutes: number;
 }
 
+interface DoctorProfileData {
+  id: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  birthDate?: string;
+  gender?: string;
+  profileImage?: string;
+  institute?: string;
+  licenseNumber?: string;
+  specialization?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface TimeSlot {
   startTime: string;
   endTime: string;
@@ -49,6 +65,8 @@ const DoctorSettings = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
+  const [isLoading, setIsLoading] = useState(true);
+  const [doctorInfo, setDoctorInfo] = useState<DoctorProfileData | null>(null); // Renamed to doctorInfo
 
   // Template form state
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -75,8 +93,28 @@ const DoctorSettings = () => {
   const daysOfWeek = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  const fetchDoctorProfile = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/doctors/profile`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch doctor profile");
+      }
+      const data = await response.json();
+      setDoctorInfo(data);
+    } catch (err) {
+      console.error("Error fetching doctor profile:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
+    fetchDoctorProfile();
   }, []);
 
   const fetchAllData = async () => {
@@ -533,7 +571,7 @@ const DoctorSettings = () => {
                   <input
                     type="text"
                     className="form-input"
-                    defaultValue="Dr. Sarah Wilson"
+                    defaultValue={doctorInfo && doctorInfo.name}
                   />
                 </div>
                 <div>
@@ -543,16 +581,16 @@ const DoctorSettings = () => {
                   <input
                     type="text"
                     className="form-input"
-                    defaultValue="Cardiologist"
+                    defaultValue={doctorInfo && doctorInfo.specialization}
                   />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bio
+                    Institute
                   </label>
                   <textarea
                     className="form-input min-h-[100px]"
-                    defaultValue="Experienced cardiologist with 15 years of practice..."
+                    defaultValue={doctorInfo && doctorInfo.institute}
                   />
                 </div>
               </div>
