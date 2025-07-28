@@ -84,21 +84,21 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
       href: "/patient/prescriptions",
       icon: FileText,
     },
-    {
-      title: "Medical Records",
-      href: "/patient/medical-records",
-      icon: Activity,
-    },
+    // {
+    //   title: "Medical Records",
+    //   href: "/patient/medical-records",
+    //   icon: Activity,
+    // },
     {
       title: "Profile",
       href: "/patient/profile",
       icon: User,
     },
-    {
-      title: "Settings",
-      href: "/patient/settings",
-      icon: Settings,
-    },
+    // {
+    //   title: "Settings",
+    //   href: "/patient/settings",
+    //   icon: Settings,
+    // },
   ];
 
   const navItems = userType === "doctor" ? doctorNavItems : patientNavItems;

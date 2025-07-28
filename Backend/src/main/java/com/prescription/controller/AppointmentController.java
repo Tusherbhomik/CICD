@@ -6,6 +6,7 @@ import com.prescription.dto.AppointmentScheduleDTO;
 import com.prescription.dto.DoctorSearchDTO;
 import com.prescription.entity.Appointment;
 import com.prescription.entity.User;
+import com.prescription.repository.AppointmentRepository;
 import com.prescription.service.AppointmentService;
 import com.prescription.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,6 +34,9 @@ public class AppointmentController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
 
     // ============= PATIENT ENDPOINTS =============
 
@@ -93,19 +97,19 @@ public class AppointmentController {
     /**
      * Patient gets their appointment history
      */
-    @GetMapping("/patient/{patientId}/appointments")
+    @GetMapping("/patient")
     public ResponseEntity<List<AppointmentResponseDTO>> getPatientAppointments(
-            @PathVariable Long patientId,
-            @RequestParam(required = false) String status) {
+            HttpServletRequest request) {
         try {
             List<Appointment> appointments;
-            if (status != null && !status.isEmpty()) {
-                Appointment.Status appointmentStatus = Appointment.Status.valueOf(status.toUpperCase());
-                appointments = appointmentService.getPatientAppointmentsByStatus(patientId, appointmentStatus);
-            } else {
-                appointments = appointmentService.getAllPatientAppointments(patientId);
-            }
-
+//            if (status != null && !status.isEmpty()) {
+//                Appointment.Status appointmentStatus = Appointment.Status.valueOf(status.toUpperCase());
+//                appointments = appointmentService.getPatientAppointmentsByStatus(patientId, appointmentStatus);
+//            } else {
+//                appointments = appointmentService.getAllPatientAppointments(patientId);
+//            }
+            Optional<User> optionalUser = userService.getUserById((Long) request.getAttribute("userId"));
+            appointments=appointmentRepository.findByPatient(optionalUser.get());
             List<AppointmentResponseDTO> appointmentDTOs = appointments.stream()
                     .map(this::convertToResponseDTO)
                     .collect(Collectors.toList());

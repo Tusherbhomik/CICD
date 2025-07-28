@@ -63,9 +63,7 @@ public class PatientController {
 
             User user = optionalUser.get();
             System.out.println("Printing"+user.getId());
-            Patient patient = patientRepository.findByUserId(user.getId())
-                    .orElseThrow(() -> new RuntimeException("Patient profile not found for user"));
-            System.out.println("In the  patient profile  api");
+
             Map<String, Object> profileData = new HashMap<>();
             profileData.put("id", user.getId());
             profileData.put("name", user.getName());
@@ -75,11 +73,7 @@ public class PatientController {
             profileData.put("birthDate", user.getBirthDate());
             profileData.put("gender", user.getGender().toString());
             profileData.put("profileImage", user.getProfileImage());
-            profileData.put("heightCm", patient.getHeightCm());
-            profileData.put("weightKg", patient.getWeightKg());
-            profileData.put("bloodType", patient.getBloodType());
-            profileData.put("createdAt", patient.getCreatedAt());
-            profileData.put("updatedAt", patient.getUpdatedAt());
+
             System.out.println(profileData);
             return ResponseEntity.ok(profileData);
         } catch (RuntimeException e) {
