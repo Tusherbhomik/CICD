@@ -25,23 +25,23 @@ public class WebSocketCorsFilter implements Filter {
 
         String origin = request.getHeader("Origin");
         String requestURI = request.getRequestURI();
-        System.out.println("for gods sake1");
-        System.out.println(requestURI);
-        System.out.println("soumik bhai");
+//        System.out.println("for gods sake1");
+//        System.out.println(requestURI);
+//        System.out.println("soumik bhai");
         // Apply CORS headers for WebSocket related requests
         if (requestURI != null && (requestURI.startsWith("/ws")  || requestURI.contains("sockjs"))) {
-            System.out.println("1");
+//            System.out.println("1");
             // Allow specific origins or all for development
             if (origin != null && (origin.startsWith("http://localhost:") ||
                     origin.equals("http://74.225.140.65:3000") ||
                     origin.equals("http://healthsyn.me:3000"))) {
                 response.setHeader("Access-Control-Allow-Origin", origin);
-                System.out.println("2");
+//                System.out.println("2");
             } else if (origin != null && origin.startsWith("http://localhost:")) {
                 response.setHeader("Access-Control-Allow-Origin", origin);
-                System.out.println("3");
+//                System.out.println("3");
             }
-            System.out.println("klilkldkojhklsd");
+//            System.out.println("klilkldkojhklsd");
 
             response.setHeader("Access-Control-Allow-Credentials", "true");
             response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
