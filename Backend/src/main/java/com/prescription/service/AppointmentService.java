@@ -1,8 +1,10 @@
 package com.prescription.service;
 
 import com.prescription.entity.Appointment;
+import com.prescription.entity.Hospital;
 import com.prescription.entity.User;
 import com.prescription.repository.AppointmentRepository;
+import com.prescription.repository.HospitalRepository;
 import com.prescription.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,8 @@ public class AppointmentService {
 
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private HospitalRepository hospitalRepository;
 
     // Existing methods from previous implementation...
 
@@ -238,13 +242,15 @@ public class AppointmentService {
 
     // Patient requests appointment (existing method enhanced)
     public Appointment requestAppointment(Long doctorId, Long patientId, LocalDate appointmentDate,
-                                    LocalTime appointmentTime, Appointment.Type type, String reason) {
+                                    LocalTime appointmentTime, Appointment.Type type, String reason,Long hospitalId,String dateandtime) {
         User doctor = userRepository.findById(doctorId)
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
         User patient = userRepository.findById(patientId)
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
 
-        Appointment appointment = new Appointment(LocalDateTime.of(appointmentDate, appointmentTime), type, doctor, patient);
+
+        Hospital hospital=hospitalRepository.getById(hospitalId);
+        Appointment appointment = new Appointment(LocalDateTime.of(appointmentDate, appointmentTime), type, doctor, patient,hospital,dateandtime);
         appointment.setNotes(reason);
         appointment.setFollowupDate(LocalDateTime.of(appointmentDate, appointmentTime));
         appointment.setCreatedAt(LocalDateTime.now());

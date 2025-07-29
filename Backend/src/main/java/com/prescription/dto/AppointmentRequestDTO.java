@@ -40,18 +40,26 @@ public class AppointmentRequestDTO {
     @Size(max = 500, message = "Reason cannot exceed 500 characters")
     private String reason;
 
+    @NotNull(message = "Patient ID is required")
+    private Long hospitalId;
+
+    @NotNull(message = "Patient ID is required")
+    private String dateandtime;
+
     // Default constructor
     public AppointmentRequestDTO() {}
 
     // Constructor with all fields
     public AppointmentRequestDTO(Long patientId, Long doctorId, LocalDate appointmentDate,
-                                 LocalTime appointmentTime, Appointment.Type type, String reason) {
+                                 LocalTime appointmentTime, Appointment.Type type, String reason,Long hospitalId,String dateandtime) {
         this.patientId = patientId;
         this.doctorId = doctorId;
         this.appointmentDate = appointmentDate;
         this.appointmentTime = appointmentTime;
         this.type = type;
         this.reason = reason;
+        this.hospitalId = hospitalId;
+        this.dateandtime = dateandtime;
     }
 
     @Override

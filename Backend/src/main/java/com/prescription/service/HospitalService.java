@@ -27,6 +27,12 @@ public class HospitalService {
                 .orElseThrow(() -> new RuntimeException("Hospital not found"));
         return convertToDto(hospital);
     }
+    public Hospital getHospitalById2(Long id) {
+        Hospital hospital = hospitalRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Hospital not found"));
+       return hospital;
+    }
+
 
     public List<HospitalDto> searchHospitals(String query) {
         return hospitalRepository.findByNameContainingIgnoreCase(query).stream()

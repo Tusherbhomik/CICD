@@ -17,7 +17,7 @@ const BookAppointment = ({ patientId = 1 }) => {
   const [doctors, setDoctors] = useState([]);
   const [hospitals, setHospitals] = useState([]);
   const [filteredDoctors, setFilteredDoctors] = useState([]);
-  const [selectedHospital, setSelectedHospital] = useState(null);
+  const [selectedHospital, setSelectedHospital] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,13 +55,17 @@ const BookAppointment = ({ patientId = 1 }) => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedDoctor(null);
-    setSelectedHospital(null);
+    setSelectedHospital("");
     setSelectedDate("");
     setSelectedTime("");
     setAppointmentType("");
     setReasonForVisit("");
     setPatientName("");
     setBookingSuccess(false);
+    setTimeSlots([]);
+    setAvailableDates([]);
+    setSchedules([]);
+    setDoctorHospitals([]);
   };
 
   useEffect(() => {
@@ -119,6 +123,37 @@ const BookAppointment = ({ patientId = 1 }) => {
     fetchDoctorsAndHospitals();
   }, []);
 
+  // New useEffect to handle hospital selection and update available dates
+  useEffect(() => {
+    if (selectedHospital && schedules.length > 0) {
+      console.log("Hospital selected:", selectedHospital);
+      console.log("Available schedules:", schedules);
+
+      const availableDays = [
+        ...new Set(
+          schedules
+            .filter((s) => s.hospitalId === parseInt(selectedHospital))
+            .map((s) => s.dayOfWeek)
+        ),
+      ];
+
+      console.log("Available days for hospital:", availableDays);
+      const dates = generateAvailableDates(availableDays);
+      console.log(dates);
+      setAvailableDates(dates);
+
+      // Reset selected date and time when hospital changes
+      setSelectedDate("");
+      setSelectedTime("");
+      setTimeSlots([]);
+    } else {
+      setAvailableDates([]);
+      setSelectedDate("");
+      setSelectedTime("");
+      setTimeSlots([]);
+    }
+  }, [selectedHospital, schedules]);
+
   const fuzzySearch = (items, searchTerm) => {
     if (!searchTerm.trim()) return items;
     const term = searchTerm.toLowerCase();
@@ -151,7 +186,7 @@ const BookAppointment = ({ patientId = 1 }) => {
 
     if (selectedHospital) {
       filtered = filtered.filter((doctor) =>
-        doctor.hospitals.some((h) => h.id === selectedHospital)
+        doctor.hospitals.some((h) => h.id === parseInt(selectedHospital))
       );
     }
 
@@ -160,16 +195,18 @@ const BookAppointment = ({ patientId = 1 }) => {
 
   const handleBookAppointment = async (doctor) => {
     try {
-      // console.log("magi");
-      console.log(doctor);
+      console.log("Booking appointment for doctor:", doctor);
       setSelectedDoctor(doctor);
       setIsModalOpen(true);
       setBookingSuccess(false);
 
+      // Reset all selections
+      setSelectedHospital("");
       setSelectedDate("");
       setSelectedTime("");
       setTimeSlots([]);
-      setSchedules([]); // Reset schedules
+      setAvailableDates([]);
+      setSchedules([]);
 
       const response = await fetch(
         `${API_BASE_URL}/api/schedules?doctorId=${doctor.id}`,
@@ -178,21 +215,13 @@ const BookAppointment = ({ patientId = 1 }) => {
           credentials: "include",
         }
       );
-      console.log(response);
 
       if (!response.ok) {
         throw new Error("Failed to fetch schedules");
       }
 
-      ///schedule data hospital id (unique)
-      ////hospitalsData ---(id,,,name)
-
-      /////schedule data---unique id
-      ////hospitalsData----id ----> name
       const scheduleData = await response.json();
-      console.log("yes");
-      console.log(scheduleData);
-      // setHospitals(scheduleData.)
+      console.log("Schedule data received:", scheduleData);
       setSchedules(scheduleData);
 
       const uniqueHospitalIds = [
@@ -203,38 +232,57 @@ const BookAppointment = ({ patientId = 1 }) => {
       );
       setDoctorHospitals(filteredHospitals);
 
-      const availableDays = [
-        ...new Set(
-          scheduleData
-            .filter((s) => s.hospitalId === selectedHospital)
-            .map((s) => s.dayOfWeek)
-        ),
-      ];
-      const dates = generateAvailableDates(availableDays);
-      setAvailableDates(dates);
+      console.log("Doctor hospitals set:", filteredHospitals);
     } catch (error) {
       console.error("Error booking appointment:", error);
       alert(`Error: ${error.message}`);
     }
   };
 
+  // const generateAvailableDates = (availableDays) => {
+  //   const dates = [];
+  //   const today = new Date("2025-07-29T04:42:00+06:00"); // Current date and time
+  //   const oneMonthLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  //   for (
+  //     let d = new Date(today);
+  //     d <= oneMonthLater;
+  //     d.setDate(d.getDate() + 1)
+  //   ) {
+  //     const dayName = d
+  //       .toLocaleDateString("en-US", { weekday: "long" })
+  //       .toUpperCase();
+  //     if (availableDays.includes(dayName)) {
+  //       console.log(dayName);
+  //       dates.push(d.toISOString().split("T")[0]);
+  //     }
+  //   }
+  //   return dates;
+  // };
+
   const generateAvailableDates = (availableDays) => {
     const dates = [];
-    const today = new Date("2025-07-29T04:42:00+06:00"); // Current date and time
+    const today = new Date("2025-07-29T04:42:00+06:00");
     const oneMonthLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-    for (
-      let d = new Date(today);
-      d <= oneMonthLater;
-      d.setDate(d.getDate() + 1)
-    ) {
+    for (let i = 0; i <= 30; i++) {
+      const d = new Date(today); // fresh copy
+      d.setDate(today.getDate() + i);
+
+      // Use UTC so the day name doesn't shift due to local timezones
       const dayName = d
-        .toLocaleDateString("en-US", { weekday: "long" })
+        .toLocaleDateString("en-US", {
+          weekday: "long",
+          timeZone: "UTC",
+        })
         .toUpperCase();
+
       if (availableDays.includes(dayName)) {
+        // Output date in YYYY-MM-DD format
         dates.push(d.toISOString().split("T")[0]);
       }
     }
+
     return dates;
   };
 
@@ -242,22 +290,23 @@ const BookAppointment = ({ patientId = 1 }) => {
     setSelectedDate(selectedDate);
     setSelectedTime("");
 
-    if (selectedDate && schedules.length > 0) {
+    if (selectedDate && schedules.length > 0 && selectedHospital) {
       const schedule = schedules.find(
         (s) =>
-          s.hospitalId === selectedHospital &&
+          s.hospitalId === parseInt(selectedHospital) &&
           s.dayOfWeek.toUpperCase() ===
             new Date(selectedDate)
               .toLocaleDateString("en-US", { weekday: "long" })
               .toUpperCase()
       );
+
       if (schedule) {
         const slots = schedule.timeSlots.split(",").map((slot) => {
           const [start, end] = slot.split("-");
           return {
             display: `${start} - ${end}`,
             value: start,
-            slotId: `${schedule.id}_${start}`, // Use schedule ID with start time
+            slotId: `${schedule.id}_${start}`,
           };
         });
 
@@ -294,6 +343,7 @@ const BookAppointment = ({ patientId = 1 }) => {
       const appointmentData = {
         patientId: patientId,
         doctorId: selectedDoctor.id,
+        hospitalId: parseInt(selectedHospital),
         appointmentDate: selectedDate,
         appointmentTime: selectedTime,
         type: appointmentType,
@@ -301,11 +351,6 @@ const BookAppointment = ({ patientId = 1 }) => {
         patientName: patientName,
         slotId: selectedSlotData.slotId,
       };
-
-      // Placeholder for appointment table check
-      // TODO: Implement API call to check if the slot is booked in the appointment table
-      // Example: const availabilityResponse = await fetch(`${API_BASE_URL}/api/appointments/check?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital}&date=${selectedDate}&time=${selectedTime}`, { method: "GET", credentials: "include" });
-      // if (!availabilityResponse.ok) throw new Error("Slot already booked");
 
       const response = await fetch(`${API_BASE_URL}/api/appointments/request`, {
         method: "POST",
@@ -408,11 +453,7 @@ const BookAppointment = ({ patientId = 1 }) => {
               <select
                 className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 md:w-48"
                 value={selectedHospital || ""}
-                onChange={(e) =>
-                  setSelectedHospital(
-                    e.target.value ? parseInt(e.target.value) : null
-                  )
-                }
+                onChange={(e) => setSelectedHospital(e.target.value)}
               >
                 <option value="">Select Hospital</option>
                 {hospitals.map((hospital) => (
@@ -432,7 +473,9 @@ const BookAppointment = ({ patientId = 1 }) => {
               selectedSpecialty !== "All Specialties" &&
               ` in ${selectedSpecialty}`}
             {selectedHospital &&
-              ` at ${hospitals.find((h) => h.id === selectedHospital)?.name}`}
+              ` at ${
+                hospitals.find((h) => h.id === parseInt(selectedHospital))?.name
+              }`}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -555,6 +598,14 @@ const BookAppointment = ({ patientId = 1 }) => {
                       <p className="text-sm text-green-800">
                         <strong>Patient:</strong> {patientName}
                       </p>
+                      <p className="text-sm text-green-800">
+                        <strong>Hospital:</strong>{" "}
+                        {
+                          doctorHospitals.find(
+                            (h) => h.id === parseInt(selectedHospital)
+                          )?.name
+                        }
+                      </p>
                     </div>
                   </div>
                 ) : (
@@ -603,12 +654,7 @@ const BookAppointment = ({ patientId = 1 }) => {
                         <select
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                           value={selectedHospital || ""}
-                          onChange={(e) =>
-                            setSelectedHospital(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
-                          }
-                          // disabled={!!selectedDoctor}
+                          onChange={(e) => setSelectedHospital(e.target.value)}
                         >
                           <option value="">Select Hospital</option>
                           {doctorHospitals.map((hospital) => (
@@ -626,9 +672,15 @@ const BookAppointment = ({ patientId = 1 }) => {
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                           value={selectedDate}
                           onChange={(e) => handleDateSelection(e.target.value)}
-                          // disabled={!selectedHospital}
+                          disabled={!selectedHospital}
                         >
-                          <option value="">Select a date</option>
+                          <option value="">
+                            {!selectedHospital
+                              ? "Select a hospital first"
+                              : availableDates.length === 0
+                              ? "No available dates"
+                              : "Select a date"}
+                          </option>
                           {availableDates.map((date) => (
                             <option key={date} value={date}>
                               {new Date(date).toLocaleDateString("en-US", {
@@ -684,18 +736,7 @@ const BookAppointment = ({ patientId = 1 }) => {
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Patient Name
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={patientName}
-                          onChange={(e) => setPatientName(e.target.value)}
-                          placeholder="Enter your name"
-                        />
-                      </div>
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Reason for Visit

@@ -41,11 +41,11 @@ public class DoctorHospitalScheduleController {
 
     @GetMapping
     public ResponseEntity<?> getScheduleByDoctorId(
-            @RequestParam(required = false) Long id) {
+            @RequestParam(name = "doctorId",required = false) Long id) {
         System.out.println("yes tushar2");
          System.out.println(id);
 
-        List<DoctorHospitalSchedule> schedule = doctorHospitalScheduleRepository.findByDoctorId(2L);
+        List<DoctorHospitalSchedule> schedule = doctorHospitalScheduleRepository.findByDoctorId(id);
 
         System.out.println(schedule);
         return ResponseEntity.ok(schedule);

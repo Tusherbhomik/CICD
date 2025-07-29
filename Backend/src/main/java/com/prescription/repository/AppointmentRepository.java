@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import com.prescription.entity.Hospital;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,6 +20,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByDoctorAndStatus(User doctor, Appointment.Status status);
 
     List<Appointment> findByPatientAndStatus(User patient, Appointment.Status status);
+
+    List<Appointment> findByDoctorAndHospital(User doctor, Hospital hospital);
 
     List<Appointment> findByDoctorAndStatusIn(User doctor, List<Appointment.Status> statuses);
 

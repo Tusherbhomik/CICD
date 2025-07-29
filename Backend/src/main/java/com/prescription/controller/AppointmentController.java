@@ -5,9 +5,11 @@ import com.prescription.dto.AppointmentResponseDTO;
 import com.prescription.dto.AppointmentScheduleDTO;
 import com.prescription.dto.DoctorSearchDTO;
 import com.prescription.entity.Appointment;
+import com.prescription.entity.Hospital;
 import com.prescription.entity.User;
 import com.prescription.repository.AppointmentRepository;
 import com.prescription.service.AppointmentService;
+import com.prescription.service.HospitalService;
 import com.prescription.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -37,6 +39,8 @@ public class AppointmentController {
 
     @Autowired
     private AppointmentRepository appointmentRepository;
+    @Autowired
+    private HospitalService hospitalService;
 
     // ============= PATIENT ENDPOINTS =============
 
@@ -75,7 +79,9 @@ public class AppointmentController {
                     request.getAppointmentDate(),
                     request.getAppointmentTime(),
                     request.getType(),
-                    request.getReason()
+                    request.getReason(),
+                    request.getHospitalId(),
+                    request.getDateandtime()
 
             );
 
@@ -94,6 +100,18 @@ public class AppointmentController {
     /**
      * Patient gets their appointment history
      */
+
+    @GetMapping("/timeslots")
+    public ResponseEntity<?> getdoctorhospitaltimeslots(@RequestParam(name = "doctorId",required = false) Long doctorid,@RequestParam(name = "hospitalId",required = false) Long hospitalid, HttpServletRequest request2) {
+
+        User optionalUser = userService.getUserById(doctorid).get();
+        Hospital hospital=hospitalService.getHospitalById2(hospitalid);
+        List<Appointment> dateandtime=appointmentRepository.findByDoctorAndHospital(optionalUser,hospital);
+
+        return ResponseEntity.ok(dateandtime);
+    }
+
+
     @GetMapping("/patient")
     public ResponseEntity<List<AppointmentResponseDTO>> getPatientAppointments(
             HttpServletRequest request) {
@@ -110,7 +128,7 @@ public class AppointmentController {
             List<AppointmentResponseDTO> appointmentDTOs = appointments.stream()
                     .map(this::convertToResponseDTO)
                     .collect(Collectors.toList());
-
+            System.out.println(appointmentDTOs);
             return ResponseEntity.ok(appointmentDTOs);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

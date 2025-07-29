@@ -2,9 +2,7 @@ package com.prescription.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -14,6 +12,8 @@ import java.time.LocalDateTime;
 // Appointment Entity
 @Data
 @Entity
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "appointments")
 @EntityListeners(AuditingEntityListener.class)
 public class Appointment {
@@ -59,18 +59,23 @@ public class Appointment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // start time  end time  hospitalid
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hospital_id", nullable = false)
+    private Hospital hospital;
+
+    @Column(name = "date_time", nullable = false)
+    private String dateandtime;  /// date,time slot,day
 
 
-    // Constructors
-    public Appointment() {
-    }
 
-    public Appointment(LocalDateTime scheduledTime, Type type, User doctor, User patient) {
+    public Appointment(LocalDateTime scheduledTime, Type type, User doctor, User patient,Hospital hospital,String dateandtime) {
         this.scheduledTime = scheduledTime;
         this.type = type;
         this.doctor = doctor;
         this.patient = patient;
+        this.hospital  =hospital;
+        this.dateandtime=dateandtime;
     }
 
     // Enums
