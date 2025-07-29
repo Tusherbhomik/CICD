@@ -59,6 +59,9 @@ public class Appointment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // start time  end time  hospitalid
+
+
     // Constructors
     public Appointment() {
     }

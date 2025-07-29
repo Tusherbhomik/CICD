@@ -254,7 +254,6 @@ const PatientDashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold">Upcoming Appointments</h2>
-            <button className="btn-primary">Book New</button>
           </div>
           <div className="space-y-4">
             {upcomingAppointments.length > 0 ? (
@@ -303,9 +302,6 @@ const PatientDashboard = () => {
               <div className="text-center py-8 text-gray-500">
                 <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>No upcoming appointments</p>
-                <button className="btn-primary mt-4">
-                  Book Your First Appointment
-                </button>
               </div>
             )}
           </div>
@@ -315,7 +311,6 @@ const PatientDashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold">Recent Prescriptions</h2>
-            <button className="btn-primary">View All</button>
           </div>
           <div className="space-y-4">
             {recentPrescriptions.length > 0 ? (

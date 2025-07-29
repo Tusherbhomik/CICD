@@ -1,5 +1,5 @@
 import MainLayout from "@/components/layout/MainLayout";
-import { API_BASE_URL } from '@/url';
+import { API_BASE_URL } from "@/url";
 import {
   Award,
   Calendar,
@@ -14,9 +14,10 @@ import {
 import { useEffect, useState } from "react";
 
 const BookAppointment = ({ patientId = 1 }) => {
-  // Add patientId prop with default
   const [doctors, setDoctors] = useState([]);
+  const [hospitals, setHospitals] = useState([]);
   const [filteredDoctors, setFilteredDoctors] = useState([]);
+  const [selectedHospital, setSelectedHospital] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,28 +26,15 @@ const BookAppointment = ({ patientId = 1 }) => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [appointmentType, setAppointmentType] = useState(""); // New state for appointment type
+  const [appointmentType, setAppointmentType] = useState("");
   const [reasonForVisit, setReasonForVisit] = useState("");
+  const [patientName, setPatientName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [timeSlots, setTimeSlots] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
-  const [allSlotsData, setAllSlotsData] = useState({});
-
-  // const timeSlots = [
-  //   "09:00 AM",
-  //   "09:30 AM",
-  //   "10:00 AM",
-  //   "10:30 AM",
-  //   "11:00 AM",
-  //   "11:30 AM",
-  //   "02:00 PM",
-  //   "02:30 PM",
-  //   "03:00 PM",
-  //   "03:30 PM",
-  //   "04:00 PM",
-  //   "04:30 PM",
-  // ];
+  const [schedules, setSchedules] = useState([]); // Store raw schedule data
+  const [doctorHospitals, setDoctorHospitals] = useState([]);
 
   const specialties = [
     "All Specialties",
@@ -58,27 +46,48 @@ const BookAppointment = ({ patientId = 1 }) => {
     "Psychiatrist",
   ];
 
-  // Appointment types from your enum
   const appointmentTypes = [
     { value: "IN_PERSON", label: "In Person" },
     { value: "VIDEO", label: "Video Call" },
     { value: "PHONE", label: "Phone Call" },
   ];
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDoctor(null);
+    setSelectedHospital(null);
+    setSelectedDate("");
+    setSelectedTime("");
+    setAppointmentType("");
+    setReasonForVisit("");
+    setPatientName("");
+    setBookingSuccess(false);
+  };
+
   useEffect(() => {
-    const fetchDoctors = async () => {
+    const fetchDoctorsAndHospitals = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${ API_BASE_URL }/api/doctors`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (!response.ok) {
-          throw new Error("Failed to fetch doctors");
-        }
-        const data = await response.json();
+        const [doctorsResponse, hospitalsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/doctors`, {
+            method: "GET",
+            credentials: "include",
+          }),
+          fetch(`${API_BASE_URL}/api/hospitals`, {
+            method: "GET",
+            credentials: "include",
+          }),
+        ]);
 
-        const transformedDoctors = data.map((doctor) => ({
+        if (!doctorsResponse.ok) throw new Error("Failed to fetch doctors");
+        if (!hospitalsResponse.ok) throw new Error("Failed to fetch hospitals");
+
+        const doctorsData = await doctorsResponse.json();
+        console.log(doctorsData);
+        const hospitalsData = await hospitalsResponse.json();
+        console.log(hospitalsData);
+
+        const transformedDoctors = doctorsData.map((doctor) => ({
           ...doctor,
           specialization: doctor.role || "General",
           experience: "5+ years",
@@ -89,54 +98,39 @@ const BookAppointment = ({ patientId = 1 }) => {
           qualifications: ["MD", "Board Certified"],
           consultationFee: 150,
           image: "/api/placeholder/120/120",
+          hospitals: hospitalsData.filter(
+            (h) => doctor.hospitalIds?.includes(h.id) || []
+          ),
         }));
 
         setDoctors(transformedDoctors);
+        setHospitals(hospitalsData);
         setFilteredDoctors(transformedDoctors);
       } catch (err) {
         setError(err.message);
         setDoctors([]);
         setFilteredDoctors([]);
+        setHospitals([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDoctors();
+    fetchDoctorsAndHospitals();
   }, []);
 
   const fuzzySearch = (items, searchTerm) => {
     if (!searchTerm.trim()) return items;
-
     const term = searchTerm.toLowerCase();
-
     return items.filter((doctor) => {
       const name = doctor.name.toLowerCase();
       const email = doctor.email ? doctor.email.toLowerCase() : "";
       const specialization = doctor.specialization.toLowerCase();
-
-      if (
+      return (
         name.includes(term) ||
         email.includes(term) ||
         specialization.includes(term)
-      ) {
-        return true;
-      }
-
-      let nameIndex = 0;
-      let matchCount = 0;
-
-      for (let i = 0; i < term.length; i++) {
-        while (nameIndex < name.length && name[nameIndex] !== term[i]) {
-          nameIndex++;
-        }
-        if (nameIndex < name.length) {
-          matchCount++;
-          nameIndex++;
-        }
-      }
-
-      return matchCount / term.length >= 0.7;
+      );
     });
   };
 
@@ -155,206 +149,184 @@ const BookAppointment = ({ patientId = 1 }) => {
       );
     }
 
+    if (selectedHospital) {
+      filtered = filtered.filter((doctor) =>
+        doctor.hospitals.some((h) => h.id === selectedHospital)
+      );
+    }
+
     setFilteredDoctors(filtered);
-  }, [searchTerm, selectedSpecialty, doctors]);
+  }, [searchTerm, selectedSpecialty, selectedHospital, doctors]);
 
-  
-
-  // Updated handleBookAppointment function
   const handleBookAppointment = async (doctor) => {
     try {
-      console.log("Selected doctor:", doctor);
-      
+      // console.log("magi");
+      console.log(doctor);
       setSelectedDoctor(doctor);
       setIsModalOpen(true);
       setBookingSuccess(false);
-      
-      // Reset previous selections
-      setSelectedDate('');
-      setSelectedTime('');
-      setTimeSlots([]);
 
-      // Add date parameters - you can adjust these as needed
-      const startDate = new Date().toISOString().split('T')[0]; // Today
-      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 30 days from now
+      setSelectedDate("");
+      setSelectedTime("");
+      setTimeSlots([]);
+      setSchedules([]); // Reset schedules
 
       const response = await fetch(
-        `${API_BASE_URL}/api/doctor-availability/public/doctor/${doctor.id}/slots?startDate=${startDate}&endDate=${endDate}`,
+        `${API_BASE_URL}/api/schedules?doctorId=${doctor.id}`,
         {
           method: "GET",
-          // Remove credentials for public endpoint
-          credentials: "include"
+          credentials: "include",
         }
       );
+      console.log(response);
 
       if (!response.ok) {
-        let errorMessage = "Failed to get slots";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If response is not JSON, use status text
-          errorMessage = response.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
+        throw new Error("Failed to fetch schedules");
       }
 
-      // Parse JSON only once
-      const slotsData = await response.json();
-      console.log("Slots data:", slotsData);
+      ///schedule data hospital id (unique)
+      ////hospitalsData ---(id,,,name)
 
-      // Group slots by date and collect available dates
-      const slotsByDate = {};
-      slotsData.forEach(slot => {
-        const date = slot.slotDate; // Assuming the slot has a date field
-        if (!slotsByDate[date]) {
-          slotsByDate[date] = [];
-        }
-        slotsByDate[date].push(slot);
-      });
-      console.log("Slots by date: ",slotsByDate)
+      /////schedule data---unique id
+      ////hospitalsData----id ----> name
+      const scheduleData = await response.json();
+      console.log("yes");
+      console.log(scheduleData);
+      // setHospitals(scheduleData.)
+      setSchedules(scheduleData);
 
-      // Set available dates (only dates that have slots)
-      const availableDates = Object.keys(slotsByDate).sort();
-      setAvailableDates(availableDates);
-      
-      // Store all slots data for later use
-      setAllSlotsData(slotsByDate);
+      const uniqueHospitalIds = [
+        ...new Set(scheduleData.map((item) => item.hospitalId)),
+      ];
+      const filteredHospitals = hospitals.filter((h) =>
+        uniqueHospitalIds.includes(h.id)
+      );
+      setDoctorHospitals(filteredHospitals);
 
-      console.log("Available dates:", availableDates);
-
+      const availableDays = [
+        ...new Set(
+          scheduleData
+            .filter((s) => s.hospitalId === selectedHospital)
+            .map((s) => s.dayOfWeek)
+        ),
+      ];
+      const dates = generateAvailableDates(availableDays);
+      setAvailableDates(dates);
     } catch (error) {
       console.error("Error booking appointment:", error);
-      // Handle error appropriately - maybe show a toast or alert
       alert(`Error: ${error.message}`);
     }
   };
 
-  // New function to handle date selection and load time slots
+  const generateAvailableDates = (availableDays) => {
+    const dates = [];
+    const today = new Date("2025-07-29T04:42:00+06:00"); // Current date and time
+    const oneMonthLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    for (
+      let d = new Date(today);
+      d <= oneMonthLater;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dayName = d
+        .toLocaleDateString("en-US", { weekday: "long" })
+        .toUpperCase();
+      if (availableDays.includes(dayName)) {
+        dates.push(d.toISOString().split("T")[0]);
+      }
+    }
+    return dates;
+  };
+
   const handleDateSelection = (selectedDate) => {
     setSelectedDate(selectedDate);
-    setSelectedTime(''); // Reset selected time
-    
-    if (selectedDate && allSlotsData[selectedDate]) {
-      // Format time slots for the selected date
-      const formattedSlots = allSlotsData[selectedDate].map(slot => {
-        const start = slot.startTime ? slot.startTime.substring(0, 5) : 'N/A';
-        const end = slot.endTime ? slot.endTime.substring(0, 5) : 'N/A';
-        return {
-          display: `${start} - ${end}`,
-          value: start, // Use start time as value
-          slotId: slot.id // Store slot ID for booking
-        };
-      });
-      
-      setTimeSlots(formattedSlots);
+    setSelectedTime("");
+
+    if (selectedDate && schedules.length > 0) {
+      const schedule = schedules.find(
+        (s) =>
+          s.hospitalId === selectedHospital &&
+          s.dayOfWeek.toUpperCase() ===
+            new Date(selectedDate)
+              .toLocaleDateString("en-US", { weekday: "long" })
+              .toUpperCase()
+      );
+      if (schedule) {
+        const slots = schedule.timeSlots.split(",").map((slot) => {
+          const [start, end] = slot.split("-");
+          return {
+            display: `${start} - ${end}`,
+            value: start,
+            slotId: `${schedule.id}_${start}`, // Use schedule ID with start time
+          };
+        });
+
+        // Filter out past slots for today
+        const selectedDateObj = new Date(selectedDate);
+        if (
+          selectedDateObj.toDateString() ===
+            new Date("2025-07-29").toDateString() &&
+          new Date("2025-07-29T04:42:00+06:00") > new Date()
+        ) {
+          const currentTime = "04:42";
+          setTimeSlots(slots.filter((slot) => slot.value >= currentTime));
+        } else {
+          setTimeSlots(slots);
+        }
+      } else {
+        setTimeSlots([]);
+      }
     } else {
       setTimeSlots([]);
     }
   };
 
-  // Updated handleSubmitBooking function
   const handleSubmitBooking = async () => {
     setIsSubmitting(true);
 
     try {
-      // Find the selected slot data
-      const selectedSlotData = timeSlots.find(slot => 
-        slot.value === selectedTime || slot.display === selectedTime
+      const selectedSlotData = timeSlots.find(
+        (slot) => slot.value === selectedTime
       );
 
-      if (!selectedSlotData) {
-        throw new Error("Please select a valid time slot");
-      }
+      if (!selectedSlotData) throw new Error("Please select a valid time slot");
 
-      // Convert 12-hour AM/PM time to 24-hour format (if needed)
-      const convertTo24HourFormat = (time12h) => {
-        // Check if time is already in 24-hour format
-        if (!time12h.includes("AM") && !time12h.includes("PM")) {
-          return time12h;
-        }
-        
-        const [time, modifier] = time12h.split(" ");
-        const [initialHours, minutes] = time.split(":");
-        let hours = initialHours;
-
-        if (modifier === "PM" && hours !== "12") {
-          hours = (parseInt(hours, 10) + 12).toString();
-        }
-        if (modifier === "AM" && hours === "12") {
-          hours = "00";
-        }
-
-        return `${hours.padStart(2, "0")}:${minutes}`;
-      };
-
-      const formattedTime = convertTo24HourFormat(selectedTime);
-
-      // Make actual API call to your endpoint
       const appointmentData = {
-        patientId: 70,
+        patientId: patientId,
         doctorId: selectedDoctor.id,
         appointmentDate: selectedDate,
-        appointmentTime: formattedTime,
+        appointmentTime: selectedTime,
         type: appointmentType,
         reason: reasonForVisit,
-        slotId: selectedSlotData.slotId // Include slot ID if needed
+        patientName: patientName,
+        slotId: selectedSlotData.slotId,
       };
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/appointments/request`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(appointmentData),
-        }
-      );
+      // Placeholder for appointment table check
+      // TODO: Implement API call to check if the slot is booked in the appointment table
+      // Example: const availabilityResponse = await fetch(`${API_BASE_URL}/api/appointments/check?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital}&date=${selectedDate}&time=${selectedTime}`, { method: "GET", credentials: "include" });
+      // if (!availabilityResponse.ok) throw new Error("Slot already booked");
 
-      console.log("Submitting booking:", appointmentData);
+      const response = await fetch(`${API_BASE_URL}/api/appointments/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(appointmentData),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to book appointment");
       }
 
-      const result = await response.json();
-      console.log("Appointment booked successfully:", result);
       setBookingSuccess(true);
-
-      setTimeout(() => {
-        handleCloseModal();
-      }, 2000);
+      setTimeout(() => handleCloseModal(), 2000);
     } catch (error) {
       console.error("Error booking appointment:", error);
       alert(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Helper function to check if a date is available
-  const isDateAvailable = (date) => {
-    return availableDates.includes(date);
-  };
-
-  // Helper function to get minimum selectable date
-  const getMinSelectableDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedDoctor(null);
-    setSelectedDate("");
-    setSelectedTime("");
-    setAppointmentType(""); // Reset appointment type
-    setReasonForVisit("");
-    setBookingSuccess(false);
   };
 
   const renderStars = (rating) => {
@@ -368,12 +340,6 @@ const BookAppointment = ({ patientId = 1 }) => {
         }`}
       />
     ));
-  };
-
-  const getTomorrowDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
   };
 
   if (loading) {
@@ -439,6 +405,22 @@ const BookAppointment = ({ patientId = 1 }) => {
                   </option>
                 ))}
               </select>
+              <select
+                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 md:w-48"
+                value={selectedHospital || ""}
+                onChange={(e) =>
+                  setSelectedHospital(
+                    e.target.value ? parseInt(e.target.value) : null
+                  )
+                }
+              >
+                <option value="">Select Hospital</option>
+                {hospitals.map((hospital) => (
+                  <option key={hospital.id} value={hospital.id}>
+                    {hospital.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -449,6 +431,8 @@ const BookAppointment = ({ patientId = 1 }) => {
             {selectedSpecialty &&
               selectedSpecialty !== "All Specialties" &&
               ` in ${selectedSpecialty}`}
+            {selectedHospital &&
+              ` at ${hospitals.find((h) => h.id === selectedHospital)?.name}`}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -487,7 +471,6 @@ const BookAppointment = ({ patientId = 1 }) => {
                       </div>
                     </div>
                   </div>
-
                   <div className="space-y-3 mb-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Award className="w-4 h-4 text-blue-500" />
@@ -516,14 +499,12 @@ const BookAppointment = ({ patientId = 1 }) => {
                       </div>
                     )}
                   </div>
-
                   <div className="bg-gray-50 p-3 rounded-lg mb-4">
                     <p className="text-sm text-gray-600">Consultation Fee</p>
                     <p className="text-lg font-semibold text-blue-600">
                       ${doctor.consultationFee}
                     </p>
                   </div>
-
                   <div className="flex gap-3">
                     <button
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-1"
@@ -571,6 +552,9 @@ const BookAppointment = ({ patientId = 1 }) => {
                       <p className="text-sm text-green-800">
                         <strong>Doctor:</strong> {selectedDoctor?.name}
                       </p>
+                      <p className="text-sm text-green-800">
+                        <strong>Patient:</strong> {patientName}
+                      </p>
                     </div>
                   </div>
                 ) : (
@@ -586,7 +570,6 @@ const BookAppointment = ({ patientId = 1 }) => {
                         <X className="w-5 h-5" />
                       </button>
                     </div>
-
                     {selectedDoctor && (
                       <div className="p-6 border-b bg-gray-50">
                         <div className="flex items-center gap-3">
@@ -612,8 +595,29 @@ const BookAppointment = ({ patientId = 1 }) => {
                         </div>
                       </div>
                     )}
-
                     <div className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Hospital
+                        </label>
+                        <select
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          value={selectedHospital || ""}
+                          onChange={(e) =>
+                            setSelectedHospital(
+                              e.target.value ? parseInt(e.target.value) : null
+                            )
+                          }
+                          // disabled={!!selectedDoctor}
+                        >
+                          <option value="">Select Hospital</option>
+                          {doctorHospitals.map((hospital) => (
+                            <option key={hospital.id} value={hospital.id}>
+                              {hospital.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Select Date
@@ -622,21 +626,21 @@ const BookAppointment = ({ patientId = 1 }) => {
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                           value={selectedDate}
                           onChange={(e) => handleDateSelection(e.target.value)}
+                          // disabled={!selectedHospital}
                         >
                           <option value="">Select a date</option>
-                          {availableDates.map(date => (
+                          {availableDates.map((date) => (
                             <option key={date} value={date}>
-                              {new Date(date).toLocaleDateString('en-US', { 
-                                weekday: 'long', 
-                                year: 'numeric', 
-                                month: 'long', 
-                                day: 'numeric' 
+                              {new Date(date).toLocaleDateString("en-US", {
+                                weekday: "long",
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
                               })}
                             </option>
                           ))}
                         </select>
                       </div>
-
                       {selectedDate && timeSlots.length > 0 && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -656,13 +660,13 @@ const BookAppointment = ({ patientId = 1 }) => {
                           </select>
                         </div>
                       )}
-
                       {selectedDate && timeSlots.length === 0 && (
                         <div className="text-center py-4">
-                          <p className="text-gray-500">No available time slots for the selected date</p>
+                          <p className="text-gray-500">
+                            No available time slots for the selected date
+                          </p>
                         </div>
                       )}
-
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Appointment Type
@@ -680,7 +684,18 @@ const BookAppointment = ({ patientId = 1 }) => {
                           ))}
                         </select>
                       </div>
-
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Patient Name
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          value={patientName}
+                          onChange={(e) => setPatientName(e.target.value)}
+                          placeholder="Enter your name"
+                        />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Reason for Visit
@@ -692,7 +707,6 @@ const BookAppointment = ({ patientId = 1 }) => {
                           onChange={(e) => setReasonForVisit(e.target.value)}
                         />
                       </div>
-
                       <div className="flex gap-3 pt-4">
                         <button
                           type="button"
@@ -711,7 +725,9 @@ const BookAppointment = ({ patientId = 1 }) => {
                             !selectedDate ||
                             !selectedTime ||
                             !appointmentType ||
-                            !reasonForVisit
+                            !reasonForVisit ||
+                            !patientName ||
+                            !selectedHospital
                           }
                         >
                           {isSubmitting ? (

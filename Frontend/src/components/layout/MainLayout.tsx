@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
 import {
-  Activity,
   Calendar,
   FileText,
   LayoutDashboard,
@@ -47,6 +46,11 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
       icon: FileText,
     },
     {
+      title: "Update Schedule",
+      href: "/doctor/update-schedule",
+      icon: FileText,
+    },
+    {
       title: "Medicines", // New Medicines option
       href: "/doctor/medicines",
       icon: Pill, // Using Pill icon for medicines
@@ -84,6 +88,12 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
       href: "/patient/prescriptions",
       icon: FileText,
     },
+    // {
+    //   title: "Prescriptions",
+    //   href: "/patient/prescriptions",
+    //   icon: FileText,
+    // },
+
     // {
     //   title: "Medical Records",
     //   href: "/patient/medical-records",
