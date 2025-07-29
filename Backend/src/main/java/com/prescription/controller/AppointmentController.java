@@ -136,12 +136,17 @@ public class AppointmentController {
 //            } else {
 //                appointments = appointmentService.getAllPatientAppointments(patientId);
 //            }
+            System.out.println("========================================================================");
+            System.out.println(1);
             Optional<User> optionalUser = userService.getUserById((Long) request.getAttribute("userId"));
+            System.out.println(2);
             appointments=appointmentRepository.findByPatient(optionalUser.get());
+            System.out.println(3);
             List<AppointmentResponseDTO> appointmentDTOs = appointments.stream()
                     .map(this::convertToResponseDTO)
                     .collect(Collectors.toList());
             System.out.println(appointmentDTOs);
+            System.out.println("========================================================================");
             return ResponseEntity.ok(appointmentDTOs);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
