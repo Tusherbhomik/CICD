@@ -19,7 +19,8 @@ const MedicinesPage = () => {
     const fetchGenerics = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/api/medicines/generics`, {
+        const search="";
+        const response = await fetch(`${API_BASE_URL}/api/medicines/generics??q=${search}`, {
           method: "GET",
           credentials: "include",
         });
