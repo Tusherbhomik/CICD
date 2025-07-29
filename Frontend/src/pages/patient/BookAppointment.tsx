@@ -35,6 +35,7 @@ const BookAppointment = ({ patientId = 1 }) => {
   const [availableDates, setAvailableDates] = useState([]);
   const [schedules, setSchedules] = useState([]); // Store raw schedule data
   const [doctorHospitals, setDoctorHospitals] = useState([]);
+  const [bookedSlots, setBookedSlots] = useState([]);
 
   const specialties = [
     "All Specialties",
@@ -287,34 +288,45 @@ const BookAppointment = ({ patientId = 1 }) => {
   };
 
   // Fetch available timeslots
-  // const handleFetchTimeslots = async () => {
-  //   setLoading(true);
-  //   setError("");
+  const handleFetchTimeslots = async (selectedDate) => {
+    setLoading(true);
+    setError("");
+    console.log("Hello world")
+    console.log(selectedDate);
+    console.log(selectedHospital);
+    console.log(selectedDoctor);
+    let vardata=null;
 
-  //   try {
-  //     const response = await fetch(
-  //       `${API_BASE_URL}/api/timeslots?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital.id}&date=${selectedDate}`,
-  //       {
-  //         method: "GET",
-  //         headers: { "Content-Type": "application/json" },
-  //         credentials: "include",
-  //       }
-  //     );
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/appointments/timeslots?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital}&date=${selectedDate}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        }
+      );
 
-  //     if (!response.ok) {
-  //       throw new Error("Failed to fetch timeslots");
-  //     }
+      if (!response.ok) {
+        throw new Error("Failed to fetch timeslots");
+      }
 
-  //     const data = await response.json();
-  //     setTimeslots(data);
-  //   } catch (err) {
-  //     setError(err.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      const data = await response.json();
+      setBookedSlots(data);
+      console.log("Hello");
+      console.log(data);
+      vardata = data;
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+    return vardata;
+  };
 
-  const handleDateSelection = (selectedDate) => {
+  const handleDateSelection = async (selectedDate) => {
+    const bannedSlots = await handleFetchTimeslots(selectedDate);
+    
     setSelectedDate(selectedDate);
     setSelectedTime("");
 
@@ -329,7 +341,7 @@ const BookAppointment = ({ patientId = 1 }) => {
       );
 
       if (schedule) {
-        const slots = schedule.timeSlots.split(",").map((slot) => {
+        const slots1 = schedule.timeSlots.split(",").map((slot) => {
           const [start, end] = slot.split("-");
           return {
             display: `${start} - ${end}`,
@@ -337,6 +349,11 @@ const BookAppointment = ({ patientId = 1 }) => {
             slotId: `${schedule.id}_${start}`,
           };
         });
+        const slots = slots1.filter(
+            timeslot => !bannedSlots.includes(timeslot.value)
+        );
+        console.log("Goku");
+        console.log(slots);
 
         // Filter out past slots for today
         const selectedDateObj = new Date(selectedDate);
