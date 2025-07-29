@@ -286,6 +286,34 @@ const BookAppointment = ({ patientId = 1 }) => {
     return dates;
   };
 
+  // Fetch available timeslots
+  // const handleFetchTimeslots = async () => {
+  //   setLoading(true);
+  //   setError("");
+
+  //   try {
+  //     const response = await fetch(
+  //       `${API_BASE_URL}/api/timeslots?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital.id}&date=${selectedDate}`,
+  //       {
+  //         method: "GET",
+  //         headers: { "Content-Type": "application/json" },
+  //         credentials: "include",
+  //       }
+  //     );
+
+  //     if (!response.ok) {
+  //       throw new Error("Failed to fetch timeslots");
+  //     }
+
+  //     const data = await response.json();
+  //     setTimeslots(data);
+  //   } catch (err) {
+  //     setError(err.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleDateSelection = (selectedDate) => {
     setSelectedDate(selectedDate);
     setSelectedTime("");
@@ -305,7 +333,7 @@ const BookAppointment = ({ patientId = 1 }) => {
           const [start, end] = slot.split("-");
           return {
             display: `${start} - ${end}`,
-            value: start,
+            value: `${start} - ${end}`,
             slotId: `${schedule.id}_${start}`,
           };
         });
@@ -340,17 +368,23 @@ const BookAppointment = ({ patientId = 1 }) => {
 
       if (!selectedSlotData) throw new Error("Please select a valid time slot");
 
+      console.log("yes");
+      console.log(selectedTime);
+      console.log(selectedDate);
+      console.log(selectedSlotData);
+      console.log("nop");
+
       const appointmentData = {
         patientId: patientId,
         doctorId: selectedDoctor.id,
         hospitalId: parseInt(selectedHospital),
         appointmentDate: selectedDate,
-        appointmentTime: selectedTime,
+        appointmentTime: "10:00",
         type: appointmentType,
         reason: reasonForVisit,
-        patientName: patientName,
-        slotId: selectedSlotData.slotId,
+        dateandtime: selectedTime,
       };
+      console.log(appointmentData);
 
       const response = await fetch(`${API_BASE_URL}/api/appointments/request`, {
         method: "POST",
@@ -363,6 +397,7 @@ const BookAppointment = ({ patientId = 1 }) => {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to book appointment");
       }
+      console.log(response);
 
       setBookingSuccess(true);
       setTimeout(() => handleCloseModal(), 2000);
@@ -705,7 +740,7 @@ const BookAppointment = ({ patientId = 1 }) => {
                           >
                             <option value="">Select a time</option>
                             {timeSlots.map((slot, index) => (
-                              <option key={index} value={slot.value}>
+                              <option key={index} value={slot.display}>
                                 {slot.display}
                               </option>
                             ))}
@@ -767,7 +802,6 @@ const BookAppointment = ({ patientId = 1 }) => {
                             !selectedTime ||
                             !appointmentType ||
                             !reasonForVisit ||
-                            !patientName ||
                             !selectedHospital
                           }
                         >

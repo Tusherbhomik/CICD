@@ -20,10 +20,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -102,13 +101,27 @@ public class AppointmentController {
      */
 
     @GetMapping("/timeslots")
-    public ResponseEntity<?> getdoctorhospitaltimeslots(@RequestParam(name = "doctorId",required = false) Long doctorid,@RequestParam(name = "hospitalId",required = false) Long hospitalid, HttpServletRequest request2) {
+    public ResponseEntity<?> getdoctorhospitaltimeslots(@RequestParam(name = "doctorId",required = false) Long doctorid,@RequestParam(name = "hospitalId",required = false) Long hospitalid,@RequestParam(name = "date",required = false)LocalDate local,HttpServletRequest request2) {
 
-        User optionalUser = userService.getUserById(doctorid).get();
-        Hospital hospital=hospitalService.getHospitalById2(hospitalid);
-        List<Appointment> dateandtime=appointmentRepository.findByDoctorAndHospital(optionalUser,hospital);
+            User optionalUser = userService.getUserById(doctorid).get();
+            Hospital hospital=hospitalService.getHospitalById2(hospitalid);
+            List<Appointment> dateandtime = appointmentRepository.findByDoctorAndHospitalAndScheduledTime(
+                    optionalUser,
+                    hospital,
+                    LocalDateTime.of(local, LocalTime.of(10, 0))
+            );
 
-        return ResponseEntity.ok(dateandtime);
+
+        List<String> timeslots = dateandtime.stream()
+                .map(Appointment::getDateandtime)
+                .filter(Objects::nonNull) // Ensure no null dateandtime values
+                .collect(Collectors.toList());
+
+        System.out.println(timeslots);
+
+        return ResponseEntity.ok(timeslots);
+
+
     }
 
 

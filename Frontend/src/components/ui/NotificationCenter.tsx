@@ -58,7 +58,6 @@ const NotificationCenter: React.FC = () => {
 
   // Load notifications function that accepts userId parameter
   const loadNotifications = async (userIdParam?: number) => {
-    console.log("Loading notifications...");
     const currentUserId = userIdParam || userId;
 
     if (!currentUserId) {
@@ -85,7 +84,6 @@ const NotificationCenter: React.FC = () => {
         throw new Error(data.error || "Failed to load notifications");
       }
 
-      console.log("Notifications loaded:", data);
       setNotifications(data.notifications || []);
       setUnreadCount(data.unreadCount || 0);
     } catch (error) {
@@ -123,7 +121,6 @@ const NotificationCenter: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log("Setting up notifications...");
     const fetchUserAndSetupNotifications = async () => {
       try {
         const userResponse = await fetch(
@@ -141,12 +138,10 @@ const NotificationCenter: React.FC = () => {
           throw new Error("Failed to fetch user profile");
         }
 
-        console.log("User profile fetched successfully");
         const response = await userResponse.json();
 
         // Set the userId state
         setUserId(response.id);
-        console.log(`User ID: ${response.id}`);
 
         if (response.id) {
           // Use response.id directly instead of waiting for state update
@@ -184,12 +179,10 @@ const NotificationCenter: React.FC = () => {
   // Monitor userId state changes
   useEffect(() => {
     if (userId > 0) {
-      console.log("UserId state updated to:", userId);
     }
   }, [userId]);
 
   const handleNewNotification = (notification: NotificationData) => {
-    console.log("New notification received:", notification);
     setNotifications((prev) => [notification, ...prev]);
     setUnreadCount((prev) => prev + (notification.isRead ? 0 : 1));
     notificationService.showBrowserNotification(notification);

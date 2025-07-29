@@ -12,7 +12,7 @@ class NotificationService {
     }
 
     connect(userId, onNotification) {
-        console.log("Connecting to WebSocket...");
+        // console.log("Connecting to WebSocket...");
         
         // Create SockJS socket with proper error handling
         const socket = new SockJS(`${API_BASE_URL}/api/ws`, null, {
@@ -24,7 +24,7 @@ class NotificationService {
             debug: (str) => console.log('STOMP: ' + str),
             
             onConnect: (frame) => {
-                console.log('🔌 Connected to WebSocket:', frame);
+                // console.log('🔌 Connected to WebSocket:', frame);
                 this.connected = true;
                 this.reconnectAttempts = 0;
                 
@@ -34,7 +34,7 @@ class NotificationService {
                     (message) => {
                         try {
                             const notification = JSON.parse(message.body);
-                            console.log('📢 Received notification:', notification);
+                            // console.log('📢 Received notification:', notification);
                             onNotification(notification);
                         } catch (error) {
                             console.error('Error parsing notification:', error);
@@ -49,7 +49,7 @@ class NotificationService {
             },
             
             onDisconnect: (frame) => {
-                console.log('🔌 Disconnected from WebSocket:', frame);
+                // console.log('🔌 Disconnected from WebSocket:', frame);
                 this.connected = false;
                 this.subscriptions.clear();
                 
@@ -97,7 +97,7 @@ class NotificationService {
 
     sendConnectionTest(userId) {
         if (this.connected && this.stompClient) {
-            console.log('📤 Sending connection test message');
+            // console.log('📤 Sending connection test message');
             this.stompClient.publish({
                 destination: '/app/test',
                 body: JSON.stringify({
