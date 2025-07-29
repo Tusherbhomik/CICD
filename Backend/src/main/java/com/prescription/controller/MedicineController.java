@@ -43,7 +43,6 @@ public class MedicineController {
     }
 
     @GetMapping("/generics")
-    @PreAuthorize("hasRole('DOCTOR') or hasRole('ADMIN') or hasRole('ROOT_ADMIN')")
     public ResponseEntity<List<MedicineSearchDto>> searchAllGenerics(@RequestParam(name = "q", required = false) String searchTerm) {
         try {
             List<MedicineSearchDto> medicine = medicineService.getAllgenerics(searchTerm);
