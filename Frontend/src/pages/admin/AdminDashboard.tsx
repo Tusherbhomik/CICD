@@ -8,6 +8,10 @@ import PendingApprovalsTab from './PendingApprovalsTab';
 import MedicinesTab from './MedicinesTab';
 import AddMedicineForm from './AddMedicineForm';
 import EditMedicineForm from './EditMedicineForm';
+import HospitalsTab from './HospitalsTab';
+import AddHospitalForm from './AddHospitalForm';
+import EditHospitalForm from './EditHospitalForm';
+import HospitalDetails from './HospitalDetails';
 
 interface AdminData {
   id: number;
@@ -49,6 +53,18 @@ interface Medicine {
   description: string;
 }
 
+interface Hospital {
+  id: number;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  phone: string;
+  email: string;
+  website: string;
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,6 +73,7 @@ const AdminDashboard = () => {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [pendingAdmins, setPendingAdmins] = useState<Admin[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState<{
     show: boolean;
@@ -210,6 +227,37 @@ const AdminDashboard = () => {
     }
   }, [getAuthHeaders, getAuthToken, navigate]);
 
+  const loadHospitals = useCallback(async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        console.error('No JWT token available for loading hospitals');
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/api/hospitals`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized: Please log in again');
+          localStorage.removeItem('adminData');
+          localStorage.removeItem('adminJwtToken');
+          navigate('/admin/login');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setHospitals(data as Hospital[]);
+    } catch (error) {
+      console.error('Failed to load hospitals:', error);
+      setHospitals([]);
+      showToast('Failed to load hospitals', 'error');
+    }
+  }, [getAuthHeaders, getAuthToken, navigate]);
+
   const handleApproveAdmin = useCallback(async (adminId: number, adminName: string) => {
     const actionKey = `approve-${adminId}`;
     setActionLoading(prev => ({ ...prev, [actionKey]: true }));
@@ -317,6 +365,7 @@ const AdminDashboard = () => {
   const canPerformAdminActions = (adminData?.adminLevel === 'ROOT_ADMIN')||((adminData?.adminLevel === 'ADMIN'));
   // const canPerformAdminActions = true;
   useEffect(() => {
+    
     const data = JSON.parse(localStorage.getItem('adminData') || 'null') as AdminData | null;
     const token = localStorage.getItem('adminJwtToken');
     
@@ -344,10 +393,11 @@ const AdminDashboard = () => {
       loadAdmins();
       loadPendingAdmins();
       loadMedicines();
+      loadHospitals();
     }
     
     setIsLoading(false);
-  }, [loadAdmins, loadPendingAdmins, loadMedicines]);
+  }, [loadAdmins, loadPendingAdmins, loadMedicines, loadHospitals]);
 
   if (isLoading) {
     return (
@@ -441,8 +491,8 @@ const AdminDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             <Link
-              to="/admin/"
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${location.pathname === '/admin/' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              to="/admin"
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${(location.pathname === '/admin' || location.pathname === '/admin/') ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Overview
             </Link>
@@ -468,9 +518,17 @@ const AdminDashboard = () => {
             {adminData.canManageAdmins && (
               <Link
                 to="/admin/medicines"
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${location.pathname === '/admin/medicines' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${location.pathname.startsWith('/admin/medicines') ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
               >
                 Update Medicine DB ({medicines.length})
+              </Link>
+            )}
+            {adminData.canManageAdmins && (
+              <Link
+                to="/admin/hospitals"
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${location.pathname.startsWith('/admin/hospitals') ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                Hospitals ({hospitals.length})
               </Link>
             )}
           </div>
@@ -480,12 +538,17 @@ const AdminDashboard = () => {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <Routes>
-            <Route path="/" element={<OverviewTab adminData={adminData} admins={admins} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} />} />
-            <Route path="/admins" element={<AdminsTab adminData={adminData} admins={admins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} handleSuspendAdmin={handleSuspendAdmin} />} />
-            <Route path="/pending-approval" element={<PendingApprovalsTab adminData={adminData} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} canPerformAdminActions={canPerformAdminActions} handleApproveAdmin={handleApproveAdmin} />} />
-            <Route path="/medicines" element={<MedicinesTab adminData={adminData} medicines={medicines} formatDate={formatDate} showConfirmation={showConfirmation} canPerformAdminActions={canPerformAdminActions} />} />
-            <Route path="/medicines/add" element={<AddMedicineForm />} />
-            <Route path="/medicines/edit/:id" element={<EditMedicineForm />} />
+            <Route index element={<OverviewTab adminData={adminData} admins={admins} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} />} />
+            <Route path="overview" element={<OverviewTab adminData={adminData} admins={admins} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} />} />
+            <Route path="admins" element={<AdminsTab adminData={adminData} admins={admins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} handleSuspendAdmin={handleSuspendAdmin} />} />
+            <Route path="pending-approval" element={<PendingApprovalsTab adminData={adminData} pendingAdmins={pendingAdmins} formatDate={formatDate} getAdminLevelBadge={getAdminLevelBadge} getStatusBadge={getStatusBadge} showConfirmation={showConfirmation} actionLoading={actionLoading} canPerformAdminActions={canPerformAdminActions} handleApproveAdmin={handleApproveAdmin} />} />
+            <Route path="medicines" element={<MedicinesTab adminData={adminData} medicines={medicines} formatDate={formatDate} showConfirmation={showConfirmation} canPerformAdminActions={canPerformAdminActions} />} />
+            <Route path="medicines/add" element={<AddMedicineForm />} />
+            <Route path="medicines/edit/:id" element={<EditMedicineForm />} />
+            <Route path="hospitals" element={<HospitalsTab adminData={adminData} hospitals={hospitals} formatDate={formatDate} showConfirmation={showConfirmation} canPerformAdminActions={canPerformAdminActions} />} />
+            <Route path="hospitals/add" element={<AddHospitalForm />} />
+            <Route path="hospitals/edit/:id" element={<EditHospitalForm />} />
+            <Route path="hospitals/:id" element={<HospitalDetails />} />
           </Routes>
         </div>
       </main>

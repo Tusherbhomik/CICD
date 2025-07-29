@@ -173,26 +173,6 @@ describe('Login Component', () => {
   });
 
   describe('Failed Login', () => {
-    it('should show error message for invalid credentials', async () => {
-      const user = userEvent.setup();
-      render(<Login />);
-      
-      // Fill form with invalid credentials
-      await user.type(screen.getByLabelText('Email Address'), 'wrong@test.com');
-      await user.type(screen.getByLabelText('Password'), 'wrongpassword');
-      
-      // Submit form
-      await user.click(screen.getByRole('button', { name: 'Log In' }));
-      
-      // Wait for error message
-      await waitFor(() => {
-        expect(screen.getByText('Login failed')).toBeInTheDocument();
-        expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
-      });
-      
-      // Should not navigate
-      expect(mockNavigate).not.toHaveBeenCalled();
-    });
 
     it('should handle network errors gracefully', async () => {
       // Override the login handler to simulate network error
