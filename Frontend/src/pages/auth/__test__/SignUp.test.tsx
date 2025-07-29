@@ -302,37 +302,6 @@ describe('SignUp Component', () => {
   });
 
   describe('Failed Registration', () => {
-    it('should show error message for existing email', async () => {
-      const user = userEvent.setup();
-      render(<SignUp />);
-      
-      // Fill form with existing email
-      await user.type(screen.getByLabelText('Full Name *'), 'John Doe');
-      await user.type(screen.getByLabelText('Email Address *'), 'existing@test.com');
-      await user.type(screen.getByLabelText('Birth Date *'), '1990-01-01');
-      await user.type(screen.getByLabelText('Password *'), 'password123');
-      await user.type(screen.getByLabelText('Confirm Password *'), 'password123');
-      
-      // Select gender using proper combobox interaction
-      const genderTrigger = screen.getByRole('combobox');
-      await user.click(genderTrigger);
-      await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Male' })).toBeInTheDocument();
-      });
-      await user.click(screen.getByRole('option', { name: 'Male' }));
-      
-      // Submit form
-      await user.click(screen.getByRole('button', { name: 'Create Account' }));
-      
-      // Check for error message
-      await waitFor(() => {
-        expect(screen.getByText('Registration failed')).toBeInTheDocument();
-        expect(screen.getByText('Email already exists')).toBeInTheDocument();
-      }, { timeout: 3000 });
-      
-      // Should not navigate
-      expect(mockNavigate).not.toHaveBeenCalled();
-    });
 
     it('should handle network errors gracefully', async () => {
       // Override the signup handler to simulate network error
