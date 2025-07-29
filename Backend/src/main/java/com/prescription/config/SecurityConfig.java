@@ -56,10 +56,13 @@ public class SecurityConfig {
                 "http://healthsyn.me:3000",
                 "http://172.19.102.152:8081",
                 "http://127.0.0.1:8081:8081",
-                "http://172.19.111.255:8081"
+                "http://172.19.111.255:8081",
+                "http://74.225.140.65:8080",
+                "*"
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(false); // Set to false when using "*" origin
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
