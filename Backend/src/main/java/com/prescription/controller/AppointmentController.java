@@ -102,14 +102,17 @@ public class AppointmentController {
 
     @GetMapping("/timeslots")
     public ResponseEntity<?> getdoctorhospitaltimeslots(@RequestParam(name = "doctorId",required = false) Long doctorid,@RequestParam(name = "hospitalId",required = false) Long hospitalid,@RequestParam(name = "date",required = false)LocalDate local,HttpServletRequest request2) {
-
+        System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
             User optionalUser = userService.getUserById(doctorid).get();
+        System.out.println(1);
             Hospital hospital=hospitalService.getHospitalById2(hospitalid);
+        System.out.println(2);
             List<Appointment> dateandtime = appointmentRepository.findByDoctorAndHospitalAndScheduledTime(
                     optionalUser,
                     hospital,
                     LocalDateTime.of(local, LocalTime.of(10, 0))
             );
+        System.out.println(3);
 
 
         List<String> timeslots = dateandtime.stream()
@@ -118,6 +121,7 @@ public class AppointmentController {
                 .collect(Collectors.toList());
 
         System.out.println(timeslots);
+        System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
 
         return ResponseEntity.ok(timeslots);
 
