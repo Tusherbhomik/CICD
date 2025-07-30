@@ -389,11 +389,11 @@ const AdminDashboard = () => {
       setAdminData(data);
     }
 
+    loadAdmins();
+    loadMedicines();
+    loadHospitals();
     if (data?.canManageAdmins) {
-      loadAdmins();
       loadPendingAdmins();
-      loadMedicines();
-      loadHospitals();
     }
     
     setIsLoading(false);
