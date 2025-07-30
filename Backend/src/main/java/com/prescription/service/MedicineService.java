@@ -70,6 +70,16 @@ public class MedicineService {
     public List<MedicineSearchDto> getAllgenerics(String searchTerm) {
         System.out.println(2);
         System.out.println(searchTerm);
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            List<MedicineGeneric> medicines = medicineGenericRepository.findAll();
+            List<MedicineSearchDto> results2 = new ArrayList<>();
+            for (MedicineGeneric medicine : medicines) {
+                MedicineSearchDto dto = convertToGenericsSearchDto(medicine);
+                results2.add(dto);
+            }
+            return results2;
+        }
+        
         List<MedicineGeneric> medicineGenerics = medicineGenericRepository.findByGenericNameContainingIgnoreCase(searchTerm);
         System.out.println(medicineGenerics);
         System.out.println(3);
