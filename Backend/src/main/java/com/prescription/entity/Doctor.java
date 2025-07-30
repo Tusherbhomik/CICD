@@ -34,7 +34,7 @@ public class Doctor {
     private String specialization;
 
     @NotBlank
-    @Column(name = "license_number", nullable = false, unique = true)
+    @Column(name = "license_number", nullable = false)
     private String licenseNumber;
 
     @CreatedDate
