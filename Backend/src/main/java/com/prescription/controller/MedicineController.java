@@ -44,8 +44,10 @@ public class MedicineController {
 
     @GetMapping("/generics")
     public ResponseEntity<List<MedicineSearchDto>> searchAllGenerics(@RequestParam(name = "q", required = false) String searchTerm) {
+        System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa");
         try {
             List<MedicineSearchDto> medicine = medicineService.getAllgenerics(searchTerm);
+            System.out.println(1);
             System.out.println(medicine);
             return ResponseEntity.ok(medicine);
         } catch (RuntimeException e) {
