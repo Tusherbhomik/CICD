@@ -46,26 +46,25 @@ const GenericDetailPage = () => {
     typeof parsedDescription
   );
 
-  // Extract usage
-  const usageMatch = parsedDescription.match(/"usage"\s*:\s*"([^"]+)"/);
-  const usage = usageMatch ? usageMatch[1] : null;
+  // const usageMatch = parsedDescription.match(/"usage"\s*:\s*"([^"]+)"/);
+  // const usage = usageMatch ? usageMatch[1] : null;
 
-  // Extract side_effects
-  const sideEffectsMatch = parsedDescription.match(
-    /"side_effects"\s*:\s*"([^"]+)"/
-  );
-  const side_effects = sideEffectsMatch ? sideEffectsMatch[1] : null;
+  // // Extract side_effects
+  // const sideEffectsMatch = parsedDescription.match(
+  //   /"side_effects"\s*:\s*"([^"]+)"/
+  // );
+  // const side_effects = sideEffectsMatch ? sideEffectsMatch[1] : null;
 
   const sections = [
     {
       title: "Indications",
-      content: usage,
+      content: parsedDescription.usage || "Not available",
       icon: "🎯",
       color: "bg-blue-50 border-blue-200",
     },
     {
       title: "Side Effects",
-      content: side_effects,
+      content: parsedDescription.side_effects || "Not available",
       icon: "⚠️",
       color: "bg-red-50 border-red-200",
     },
