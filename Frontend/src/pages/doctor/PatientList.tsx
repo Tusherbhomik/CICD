@@ -161,9 +161,6 @@ const DoctorPrescriptions = () => {
         doc.setFontSize(40);
         doc.setTextColor(200, 200, 200);
         doc.setFont("helvetica", "italic");
-        doc.text("Medical Document", pageWidth / 2, pageHeight / 2, {
-          align: "center",
-        });
       };
 
       // First page setup
@@ -224,7 +221,7 @@ const DoctorPrescriptions = () => {
       doc.setTextColor(33, 33, 33);
       doc.text("Name", margin + 5, yPosition + 8);
       doc.text("Date", margin + colWidth + 5, yPosition + 8);
-      doc.text("Patient ID", margin + 2 * colWidth + 5, yPosition + 8);
+      // doc.text("Patient ID", margin + 2 * colWidth + 5, yPosition + 8);
       yPosition += rowHeight;
 
       doc.setFillColor(255, 255, 255);
