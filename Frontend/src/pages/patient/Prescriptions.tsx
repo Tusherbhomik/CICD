@@ -815,14 +815,14 @@ Generated on ${formatDate(new Date().toISOString())}
                                 {prescription.patient.name}
                               </p>
                             </div>
-                            <div className="bg-gray-50 rounded-lg p-4">
+{/*                             <div className="bg-gray-50 rounded-lg p-4">
                               <p className="text-sm font-medium text-gray-500">
                                 Patient ID
                               </p>
                               <p className="text-lg font-semibold text-gray-900">
                                 #{prescription.patient.id}
                               </p>
-                            </div>
+                            </div> */}
                           </div>
                         </div>
 
