@@ -2,11 +2,16 @@ package com.prescription.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
 
+@Data
 public class MedicineTimingCreateDto {
+    // Getters and Setters
     @NotNull
     private String mealRelation; // BEFORE_MEAL, AFTER_MEAL, etc.
 
@@ -25,44 +30,4 @@ public class MedicineTimingCreateDto {
     public MedicineTimingCreateDto() {
     }
 
-    // Getters and Setters
-    public String getMealRelation() {
-        return mealRelation;
-    }
-
-    public void setMealRelation(String mealRelation) {
-        this.mealRelation = mealRelation;
-    }
-
-    public String getTimeOfDay() {
-        return timeOfDay;
-    }
-
-    public void setTimeOfDay(String timeOfDay) {
-        this.timeOfDay = timeOfDay;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public LocalTime getSpecificTime() {
-        return specificTime;
-    }
-
-    public void setSpecificTime(LocalTime specificTime) {
-        this.specificTime = specificTime;
-    }
-
-    public Integer getIntervalHours() {
-        return intervalHours;
-    }
-
-    public void setIntervalHours(Integer intervalHours) {
-        this.intervalHours = intervalHours;
-    }
 }

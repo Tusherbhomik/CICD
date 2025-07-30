@@ -66,6 +66,7 @@ const EditProfile = () => {
         throw new Error("Failed to fetch patient profile");
       }
       const data: PatientData = await response.json();
+      console.log("I am the bone of my sword");
       setPatientData(data);
       setFormData({
         name: data.name || "",
@@ -157,6 +158,7 @@ const EditProfile = () => {
     };
 
     try {
+      console.log("I am batman");
       const response = await fetch(`${API_BASE_URL}/api/auth/patient-update`, {
         method: "PUT",
         headers: {

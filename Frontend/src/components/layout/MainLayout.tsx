@@ -60,11 +60,11 @@ const MainLayout = ({ children, userType }: MainLayoutProps) => {
       href: "/doctor/profile",
       icon: User,
     },
-    {
-      title: "Settings",
-      href: "/doctor/settings",
-      icon: Settings,
-    },
+    // {
+    //   title: "Settings",
+    //   href: "/doctor/settings",
+    //   icon: Settings,
+    // },
   ];
 
   const patientNavItems = [

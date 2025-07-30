@@ -44,6 +44,8 @@ const GenericDetailPage = () => {
     { title: "Indications", content: parsedDescription.usage },
     { title: "Side Effects", content: parsedDescription.side_effects },
   ];
+  console.log("sections");
+  console.log(sections);
 
   return (
     <MainLayout userType="doctor">

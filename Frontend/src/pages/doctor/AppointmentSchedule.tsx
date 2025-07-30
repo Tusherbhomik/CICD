@@ -279,7 +279,7 @@ const AppointmentSchedule = () => {
           {/* Tab Navigation */}
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8">
-              <button
+              {/* <button
                 onClick={() => setActiveTab("pending")}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === "pending"
@@ -288,7 +288,7 @@ const AppointmentSchedule = () => {
                 }`}
               >
                 Pending Requests ({pendingRequests.length})
-              </button>
+              </button> */}
               <button
                 onClick={() => setActiveTab("confirmed")}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${

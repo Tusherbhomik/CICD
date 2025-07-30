@@ -3,10 +3,15 @@ package com.prescription.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.List;
 
+@Data
 public class PrescriptionMedicineCreateDto {
+    // Getters and Setters
     @NotNull
     private Long medicineId;
 
@@ -23,36 +28,4 @@ public class PrescriptionMedicineCreateDto {
     public PrescriptionMedicineCreateDto() {
     }
 
-    // Getters and Setters
-    public Long getMedicineId() {
-        return medicineId;
-    }
-
-    public void setMedicineId(Long medicineId) {
-        this.medicineId = medicineId;
-    }
-
-    public Integer getDurationDays() {
-        return durationDays;
-    }
-
-    public void setDurationDays(Integer durationDays) {
-        this.durationDays = durationDays;
-    }
-
-    public String getSpecialInstructions() {
-        return specialInstructions;
-    }
-
-    public void setSpecialInstructions(String specialInstructions) {
-        this.specialInstructions = specialInstructions;
-    }
-
-    public List<MedicineTimingCreateDto> getTimings() {
-        return timings;
-    }
-
-    public void setTimings(List<MedicineTimingCreateDto> timings) {
-        this.timings = timings;
-    }
 }
