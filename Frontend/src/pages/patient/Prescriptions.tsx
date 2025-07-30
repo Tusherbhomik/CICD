@@ -299,7 +299,7 @@ const Prescriptions = () => {
       doc.setTextColor(33, 33, 33);
       doc.text("Name", margin + 5, yPosition + 8);
       doc.text("Date", margin + colWidth + 5, yPosition + 8);
-      doc.text("Patient ID", margin + 2 * colWidth + 5, yPosition + 8);
+      // doc.text("Patient ID", margin + 2 * colWidth + 5, yPosition + 8);
       yPosition += rowHeight;
 
       doc.setFillColor(255, 255, 255);
