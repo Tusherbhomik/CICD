@@ -133,12 +133,14 @@ public class AdminService {
 
         admin = adminRepository.save(admin);
 
-        // Generate JWT token only if admin is active (first admin)
+        // Generate JWT token only if admin is active (first admin doesn't need approval)
         String jwtToken = null;
-        if (!isFirstAdmin || admin.getStatus() == Admin.AdminStatus.ACTIVE) {
+        if (admin.getStatus() == Admin.AdminStatus.ACTIVE) {
+            // Use the actual admin level for JWT token generation
+            String jwtRole = admin.getAdminLevel().name(); // "ROOT_ADMIN", "ADMIN", or "SUPPORT_ADMIN"
             jwtToken = jwtUtil.generateToken(
                     admin.getEmail(),
-                    "ADMIN",
+                    jwtRole,  // Use dynamic role instead of hardcoded "ADMIN"
                     admin.getId()
             );
         }

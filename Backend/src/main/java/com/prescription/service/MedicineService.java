@@ -79,7 +79,7 @@ public class MedicineService {
             }
             return results2;
         }
-        
+
         List<MedicineGeneric> medicineGenerics = medicineGenericRepository.findByGenericNameContainingIgnoreCase(searchTerm);
         System.out.println(medicineGenerics);
         System.out.println(3);
