@@ -20,29 +20,55 @@ const GenericDetailPage = () => {
   }
 
   // Parse the description JSON string into sections with error handling
-  let parsedDescription = {
+  let parsedDescription: any = {
     usage: "Not available",
     side_effects: "Not available",
   };
-  console.log("djhnkjd", typeof generic.description, generic.description);
-  // try {
+
+  console.log(
+    "Original description:",
+    typeof generic.description,
+    generic.description
+  );
+
+  if (typeof generic.description === "string") {
     parsedDescription = JSON.parse(generic.description);
-    console.log(
-      "Parsed description:",
-      parsedDescription,
-      typeof parsedDescription
-    );
-    // if (!parsedDescription.usage || !parsedDescription.side_effects) {
-    //   throw new Error("Missing usage or side_effects in description");
-    // }
-  // } catch (error) {
-    // console.error("Failed to parse description:", error);
-    // setParseError("Unable to load description details");
-  // }
+  } else if (
+    typeof generic.description === "object" &&
+    generic.description !== null
+  ) {
+    parsedDescription = generic.description;
+  }
+
+  console.log(
+    "Parsed description:",
+    parsedDescription,
+    typeof parsedDescription
+  );
+
+  // Extract usage
+  const usageMatch = parsedDescription.match(/"usage"\s*:\s*"([^"]+)"/);
+  const usage = usageMatch ? usageMatch[1] : null;
+
+  // Extract side_effects
+  const sideEffectsMatch = parsedDescription.match(
+    /"side_effects"\s*:\s*"([^"]+)"/
+  );
+  const side_effects = sideEffectsMatch ? sideEffectsMatch[1] : null;
 
   const sections = [
-    { title: "Indications", content: parsedDescription.usage },
-    { title: "Side Effects", content: parsedDescription.side_effects },
+    {
+      title: "Indications",
+      content: usage,
+      icon: "🎯",
+      color: "bg-blue-50 border-blue-200",
+    },
+    {
+      title: "Side Effects",
+      content: side_effects,
+      icon: "⚠️",
+      color: "bg-red-50 border-red-200",
+    },
   ];
 
   return (
@@ -60,6 +86,12 @@ const GenericDetailPage = () => {
         {parseError && (
           <div className="p-4 text-red-600 bg-red-100 rounded-lg mb-6">
             {parseError}
+          </div>
+        )}
+
+        {!generic.description && (
+          <div className="p-4 text-yellow-600 bg-yellow-100 rounded-lg mb-6">
+            No description available for this generic medicine.
           </div>
         )}
         <div className="flex mb-6">
@@ -98,11 +130,48 @@ const GenericDetailPage = () => {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               Description
             </h3>
-            <div className="text-sm text-green-600 space-y-2">
+            <div className="space-y-4">
               {sections.map((section, index) => (
-                <div key={index}>
-                  <h4 className="font-medium text-gray-800">{section.title}</h4>
-                  <p className="font-medium text-red-800">{section.content}</p>
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg border-2 ${section.color}`}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xl">{section.icon}</span>
+                    <h4 className="font-semibold text-lg text-gray-800">
+                      {section.title}
+                    </h4>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {section.content === "Not available" ? (
+                      <p className="italic text-gray-500">
+                        No information available
+                      </p>
+                    ) : Array.isArray(section.content) ? (
+                      <div className="space-y-2">
+                        {section.content.map((item, idx) => (
+                          <div key={idx} className="flex flex-col">
+                            {item.category ? (
+                              <>
+                                <span className="font-medium text-gray-800">
+                                  {item.category}:
+                                </span>
+                                <span className="ml-2 text-gray-600">
+                                  {item.details}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-gray-600">
+                                • {item.details}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-600">{section.content}</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
