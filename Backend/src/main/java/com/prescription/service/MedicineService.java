@@ -68,8 +68,13 @@ public class MedicineService {
     }
 
     public List<MedicineSearchDto> getAllgenerics(String searchTerm) {
+        System.out.println(2);
+        System.out.println(searchTerm);
         List<MedicineGeneric> medicineGenerics = medicineGenericRepository.findByGenericNameContainingIgnoreCase(searchTerm);
+        System.out.println(medicineGenerics);
+        System.out.println(3);
         List<MedicineSearchDto> results = new ArrayList<>();
+        System.out.println(4);
         for (MedicineGeneric medicineGeneric : medicineGenerics) {
             MedicineSearchDto dto = convertToGenericsSearchDto(medicineGeneric);
             results.add(dto);

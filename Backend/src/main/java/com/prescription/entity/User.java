@@ -48,9 +48,10 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
-    @Column(name = "profile_image")
+    @Column(name = "profile_image", columnDefinition = "text")
     private String profileImage;
 
+    @Builder.Default
     @Column(name = "is_verified", nullable = false)
     private Boolean isVerified = false;
 
