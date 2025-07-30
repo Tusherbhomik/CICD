@@ -115,7 +115,7 @@ const DoctorPrescriptions = () => {
           doc.addPage();
           yPosition = 20;
           addHeader();
-          addWatermark();
+          // addWatermark();
         }
       };
 
@@ -157,15 +157,15 @@ const DoctorPrescriptions = () => {
         yPosition = 60;
       };
 
-      const addWatermark = () => {
-        doc.setFontSize(40);
-        doc.setTextColor(200, 200, 200);
-        doc.setFont("helvetica", "italic");
-      };
+      // const addWatermark = () => {
+      //   doc.setFontSize(40);
+      //   doc.setTextColor(200, 200, 200);
+      //   doc.setFont("helvetica", "italic");
+      // };
 
       // First page setup
       addHeader();
-      addWatermark();
+      // addWatermark();
 
       // Doctor Information
       doc.setFontSize(16);
