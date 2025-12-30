@@ -6,3 +6,8 @@ target/
 README.md
 Dockerfile
 .dockerignore
+*.iml
+.idea
+.mvn
+mvnw
+mvnw.cmd
