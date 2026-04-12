@@ -30,7 +30,7 @@ public class Appointment {
     @Enumerated(EnumType.STRING)
     @NotNull
     @Column(nullable = false)
-    private Status status = Status.REQUESTED;
+    private Status status=Status.SCHEDULED ;
 
     @Enumerated(EnumType.STRING)
     @NotNull

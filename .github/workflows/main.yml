@@ -7,7 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
     # 1. Get the code
     - name: Checkout code
@@ -19,54 +19,72 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+        
+    - name: Run tests
+      run: |
+        cd Backend
+        # mvn clean test
+      env:
+        SPRING_PROFILES_ACTIVE: test
+        SPRING_DATASOURCE_URL: jdbc:h2:mem:testdb
+        SPRING_DATASOURCE_USERNAME: sa
+        SPRING_DATASOURCE_PASSWORD: password
+        SPRING_DATASOURCE_DRIVER: org.h2.Driver
+        SPRING_DATASOURCE_DIALECT: org.hibernate.dialect.H2Dialect
+        SPRING_JPA_HIBERNATE_DDL_AUTO: update
+        SPRING_JPA_SHOW_SQL: false
+        FIREBASE_KEY: '${{ secrets.FIREBASE_KEY }}$'
+        FIREBASE_STORAGE_BUCKET: test-bucket
+        JWT_SECRET: ${{ secrets.secrets.JWT_SECRET }}
 
     # 3. Build backend JAR
     - name: Build backend JAR
       run: |
         cd Backend
         chmod +x mvnw
-        ./mvnw clean package -DskipTests -B
+        ./mvnw clean package -DskipTests
         ls -la target/
 
-    # 4. Set up Node.js
+
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v3
       with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: Frontend/package-lock.json
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Frontend/package-lock.json
 
     - name: Install frontend dependencies
       run: |
         cd Frontend
         npm ci
+        # npm test
 
-    # 5. Login to Docker Hub
+     # 4. Login to Docker Hub
     - name: Login to Docker Hub
       run: |
-        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-    # 6. Build and push backend image
+    # 5. Build and push backend
     - name: Build and push backend
       run: |
         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest ./Backend
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
 
-    # 7. Build and push frontend image
+    # 6. Build and push frontend  
     - name: Build and push frontend
       run: |
         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest ./Frontend
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
 
-    # 8. Deploy to Azure VM
+    # 7. Deploy to VM
     - name: Deploy to VM
       run: |
         # Create SSH key
         echo "${{ secrets.AZURE_VM_SSH_KEY }}" > key.pem
         chmod 600 key.pem
-
-        # Write docker-compose for the remote server
-        cat > remote-compose.yml << 'COMPOSE_EOF'
+        
+        # Create docker-compose content
+        cat > docker-compose.yml << 'COMPOSE_EOF'
         version: '3.8'
         services:
           database:
@@ -74,52 +92,44 @@ jobs:
             container_name: prescription_db
             environment:
               POSTGRES_DB: prescription_system
-              POSTGRES_USER: PLACEHOLDER_DB_USERNAME
-              POSTGRES_PASSWORD: PLACEHOLDER_DB_PASSWORD
+              POSTGRES_USER: ${{ secrets.DB_USERNAME }}
+              POSTGRES_PASSWORD: ${{ secrets.PASSWORD }}
             volumes:
               - postgres_data:/var/lib/postgresql/data
+            ports:
+              - "5432:5432"
             networks:
               - app-network
             restart: unless-stopped
-            healthcheck:
-              test: ["CMD-SHELL", "pg_isready -U PLACEHOLDER_DB_USERNAME -d prescription_system"]
-              interval: 30s
-              timeout: 10s
-              retries: 3
 
           backend:
-            image: PLACEHOLDER_DOCKERHUB_USERNAME/prescription-backend:latest
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-backend:latest
             container_name: prescription_backend
             environment:
               SPRING_PROFILES_ACTIVE: docker
-              SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
-              SPRING_DATASOURCE_USERNAME: PLACEHOLDER_DB_USERNAME
-              SPRING_DATASOURCE_PASSWORD: PLACEHOLDER_DB_PASSWORD
-              SPRING_DATASOURCE_DRIVER: org.postgresql.Driver
-              SPRING_DATASOURCE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+              SPRING_DATASOURCE_URL: '${{ secrets.DB_URL }}'
+              SPRING_DATASOURCE_USERNAME: prescription_user
+              SPRING_DATASOURCE_PASSWORD: prescription_password
               SPRING_JPA_HIBERNATE_DDL_AUTO: update
-              SPRING_JPA_SHOW_SQL: "false"
+              SPRING_JPA_SHOW_SQL: false
               SERVER_PORT: 8080
-              JWT_SECRET: PLACEHOLDER_JWT_SECRET
-              SPRING_MAIL_USERNAME: PLACEHOLDER_MAIL_USERNAME
-              SPRING_MAIL_PASSWORD: PLACEHOLDER_MAIL_PASSWORD
-              R2_ACCOUNT_ID: PLACEHOLDER_R2_ACCOUNT_ID
-              R2_ACCESS_KEY_ID: PLACEHOLDER_R2_ACCESS_KEY_ID
-              R2_SECRET_ACCESS_KEY: PLACEHOLDER_R2_SECRET_ACCESS_KEY
-              R2_BUCKET: PLACEHOLDER_R2_BUCKET
-              R2_PUBLIC_URL: PLACEHOLDER_R2_PUBLIC_URL
-              CORS_ALLOWED_ORIGINS: PLACEHOLDER_CORS
+              FIREBASE_KEY: '${{ secrets.FIREBASE_KEY }}'
+              JWT_SECRET: ${{ secrets.JWT_SECRET }}
+              SPRING_DATASOURCE_DRIVER: ${{ secrets.DB_DRIVER }}
+              SPRING_DATASOURCE_DIALECT: ${{ secrets.DB_DIALECT }}
+              FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+              AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+              CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://74.225.140.65:3000,http://${{ secrets.AZURE_VM_HOST }}:3000,*"
             ports:
               - "8080:8080"
             depends_on:
-              database:
-                condition: service_healthy
+              - database
             networks:
               - app-network
             restart: unless-stopped
 
           frontend:
-            image: PLACEHOLDER_DOCKERHUB_USERNAME/prescription-frontend:latest
+            image: ${{ secrets.DOCKERHUB_USERNAME }}/prescription-frontend:latest
             container_name: prescription_frontend
             ports:
               - "3000:80"
@@ -136,41 +146,37 @@ jobs:
           app-network:
             driver: bridge
         COMPOSE_EOF
-
-        # Substitute placeholders with actual secrets
-        sed -i "s|PLACEHOLDER_DB_USERNAME|${{ secrets.DB_USERNAME }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_DB_PASSWORD|${{ secrets.DB_PASSWORD }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_JWT_SECRET|${{ secrets.JWT_SECRET }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_MAIL_USERNAME|${{ secrets.SPRING_MAIL_USERNAME }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_MAIL_PASSWORD|${{ secrets.SPRING_MAIL_PASSWORD }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_R2_ACCOUNT_ID|${{ secrets.R2_ACCOUNT_ID }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_R2_ACCESS_KEY_ID|${{ secrets.R2_ACCESS_KEY_ID }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_R2_SECRET_ACCESS_KEY|${{ secrets.R2_SECRET_ACCESS_KEY }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_R2_BUCKET|${{ secrets.R2_BUCKET }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_R2_PUBLIC_URL|${{ secrets.R2_PUBLIC_URL }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_DOCKERHUB_USERNAME|${{ secrets.DOCKERHUB_USERNAME }}|g" remote-compose.yml
-        sed -i "s|PLACEHOLDER_CORS|http://${{ secrets.AZURE_VM_HOST }}:3000|g" remote-compose.yml
-
-        # Prepare remote server
-        ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-          "mkdir -p ~/prescription-app && echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u '${{ secrets.DOCKERHUB_USERNAME }}' --password-stdin"
-
-        # Copy compose file
-        scp -i key.pem -o StrictHostKeyChecking=no remote-compose.yml \
-          ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/prescription-app/docker-compose.yml
-
-        # Pull images and deploy
+        
+        # SSH and deploy
+        ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'SSH_EOF'
+          # Create app directory
+          mkdir -p ~/prescription-app
+          cd ~/prescription-app
+          
+          # Login to Docker Hub on remote server
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        SSH_EOF
+        
+        # Copy docker-compose file to remote server
+        scp -i key.pem -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/prescription-app/
+        
+        # Deploy on remote server
         ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} << 'DEPLOY_EOF'
           cd ~/prescription-app
-          docker compose pull
-          docker compose down
-          docker compose up -d
-          sleep 20
-          docker compose ps
-          echo "Deployment completed!"
+          
+          # Pull latest images and restart
+          docker-compose pull
+          docker-compose down
+          docker-compose up -d
+          
+          # Quick status check
+          sleep 15
+          docker-compose ps
+          
+          echo "🚀 Deployment completed!"
           echo "Frontend: http://${{ secrets.AZURE_VM_HOST }}:3000"
-          echo "Backend:  http://${{ secrets.AZURE_VM_HOST }}:8080"
+          echo "Backend: http://${{ secrets.AZURE_VM_HOST }}:8080"
         DEPLOY_EOF
-
+        
         # Clean up
-        rm -f key.pem remote-compose.yml
+        rm -f key.pem docker-compose.yml

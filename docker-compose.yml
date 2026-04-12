@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # PostgreSQL Database
   database:
@@ -5,17 +7,17 @@ services:
     container_name: prescription_db
     environment:
       POSTGRES_DB: prescription_system
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: prescription_user
+      POSTGRES_PASSWORD: prescription_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     ports:
-      - "5433:5432"
+      - "5432:5432"
     networks:
       - app-network
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d prescription_system"]
+      test: ["CMD-SHELL", "pg_isready -U prescription_user -d prescription_system"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -29,22 +31,11 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/prescription_system
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_DATASOURCE_DRIVER: org.postgresql.Driver
-      SPRING_DATASOURCE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_DATASOURCE_USERNAME: prescription_user
+      SPRING_DATASOURCE_PASSWORD: prescription_password
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_JPA_SHOW_SQL: "true"
       SERVER_PORT: 8080
-      JWT_SECRET: ${JWT_SECRET}
-      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
-      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
-      R2_BUCKET: ${R2_BUCKET}
-      R2_PUBLIC_URL: ${R2_PUBLIC_URL}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8081}
     ports:
       - "8080:8080"
     depends_on:
@@ -52,13 +43,11 @@ services:
         condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/actuator/health | grep -q UP || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 60s
+      retries: 3
 
   # React Frontend
   frontend:
@@ -67,13 +56,11 @@ services:
       dockerfile: Dockerfile
     container_name: prescription_frontend
     ports:
-      - "3001:80"
+      - "3000:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
       - app-network
-    restart: unless-stopped
 
 volumes:
   postgres_data:

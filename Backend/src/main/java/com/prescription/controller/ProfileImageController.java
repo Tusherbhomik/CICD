@@ -3,7 +3,7 @@ package com.prescription.controller;
 import com.fasterxml.jackson.databind.DatabindContext;
 import com.prescription.entity.User;
 import com.prescription.repository.UserRepository;
-import com.prescription.service.R2StorageService;
+import com.prescription.service.FirebaseStorageService;
 import com.prescription.service.UserService;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,7 +26,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ProfileImageController {
 
-    private final R2StorageService storageService;
+    private final FirebaseStorageService firebaseStorageService;
     private final UserRepository userRepository;
     private final UserService userService;
 
@@ -50,7 +50,7 @@ public class ProfileImageController {
 //                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Upload image to Firebase
-            String imageUrl = storageService.uploadProfileImage(file, currentUser.getId());
+            String imageUrl = firebaseStorageService.uploadProfileImage(file, currentUser.getId());
 
             // Update user profile image URL in database
             currentUser.setProfileImage(imageUrl);
@@ -98,7 +98,7 @@ public class ProfileImageController {
 
             if (currentImageUrl != null && !currentImageUrl.isEmpty()) {
                 // Delete from Firebase Storage
-                storageService.deleteProfileImage(currentUser.getId(), currentImageUrl);
+                firebaseStorageService.deleteProfileImage(currentUser.getId(), currentImageUrl);
 
                 // Update user profile image URL in database
                 currentUser.setProfileImage(null);
@@ -170,11 +170,11 @@ public class ProfileImageController {
 
             // Delete existing image if any
             if (currentUser.getProfileImage() != null && !currentUser.getProfileImage().isEmpty()) {
-                storageService.deleteProfileImage(currentUser.getId(), currentUser.getProfileImage());
+                firebaseStorageService.deleteProfileImage(currentUser.getId(), currentUser.getProfileImage());
             }
 
             // Upload new image
-            String imageUrl = storageService.uploadProfileImage(file, currentUser.getId());
+            String imageUrl = firebaseStorageService.uploadProfileImage(file, currentUser.getId());
 
             // Update user profile image URL in database
             currentUser.setProfileImage(imageUrl);

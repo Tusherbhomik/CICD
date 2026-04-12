@@ -364,22 +364,30 @@ const NotificationCenter: React.FC = () => {
   };
 
   const handleNotificationClick = async (notification: NotificationData) => {
-    await markAsRead(notification.id);
-    setIsOpen(false);
-
-    const isDoctor = userRole === "doctor";
-
+    const basePath = userRole === "doctor" ? "/doctor" : "/patient";
     if (
-      ["APPOINTMENT_CONFIRMATION", "APPOINTMENT_REMINDER", "APPOINTMENT_CANCELLATION"].includes(notification.type)
+      [
+        "APPOINTMENT_CONFIRMATION",
+        "APPOINTMENT_REMINDER",
+        "APPOINTMENT_CANCELLATION",
+      ].includes(notification.type)
     ) {
-      navigate(isDoctor ? "/doctor/appointments" : "/patient/appointments");
+      await markAsRead(notification.id);
+      if (notification.appointmentId) {
+        setIsOpen(false);
+        navigate(`${basePath}/appointments/${notification.appointmentId}`);
+      }
     } else if (
-      ["PRESCRIPTION_ISSUED", "PRESCRIPTION_REFILL", "MEDICINE_REMINDER"].includes(notification.type)
+      [
+        "PRESCRIPTION_ISSUED",
+        "PRESCRIPTION_REFILL",
+        "MEDICINE_REMINDER",
+      ].includes(notification.type)
     ) {
-      if (!isDoctor && notification.prescriptionId) {
-        navigate(`/patient/prescriptions/${notification.prescriptionId}`);
-      } else {
-        navigate(isDoctor ? "/doctor/prescriptions" : "/patient/prescriptions");
+      await markAsRead(notification.id);
+      if (notification.prescriptionId) {
+        setIsOpen(false);
+        navigate(`${basePath}/prescriptions/${notification.prescriptionId}`);
       }
     }
   };

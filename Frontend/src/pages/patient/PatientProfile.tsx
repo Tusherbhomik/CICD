@@ -1,9 +1,7 @@
 import MainLayout from "@/components/layout/MainLayout";
-import { API_BASE_URL } from "@/url";
-import {
-  Mail, Phone, Camera, Trash2, Upload, Edit,
-  Heart, Activity, User, Calendar, Droplet, Ruler, Weight,
-} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { API_BASE_URL } from '@/url';
+import { Mail, Phone, Camera, Trash2, Upload, Edit, Heart, Activity, User, Calendar, Droplet, Ruler, Weight, Shield, Plus, TrendingUp } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -26,318 +24,576 @@ interface PatientProfileData {
 
 const PatientProfile = () => {
   const { toast } = useToast();
-  const [image, setImage] = useState("");
+  const [image, setImage] = useState('');
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [showImageActions, setShowImageActions] = useState(false);
   const [patientData, setPatientData] = useState<PatientProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Calculate age from birth date
   const calculateAge = (birthDate?: string) => {
-    if (!birthDate) return null;
+    if (!birthDate) return 'N/A';
     const today = new Date();
     const birth = new Date(birthDate);
     let age = today.getFullYear() - birth.getFullYear();
-    if (today.getMonth() - birth.getMonth() < 0 || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
-    return age;
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age.toString();
   };
 
-  const calculateBMI = (data: PatientProfileData | null) => {
-    if (!data?.heightCm || !data?.weightKg) return null;
-    return (data.weightKg / Math.pow(data.heightCm / 100, 2)).toFixed(1);
+  // Calculate BMI
+  const calculateBMI = () => {
+    if (!patientData?.heightCm || !patientData?.weightKg) return null;
+    const heightM = patientData.heightCm / 100;
+    const bmi = patientData.weightKg / (heightM * heightM);
+    return bmi.toFixed(1);
   };
 
-  const getBMIInfo = (bmi: number) => {
-    if (bmi < 18.5) return { label: "Underweight", color: "text-blue-600", bg: "bg-blue-50 border-blue-100" };
-    if (bmi < 25)   return { label: "Normal",      color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-100" };
-    if (bmi < 30)   return { label: "Overweight",  color: "text-amber-600", bg: "bg-amber-50 border-amber-100" };
-    return { label: "Obese", color: "text-red-600", bg: "bg-red-50 border-red-100" };
+  const getBMICategory = (bmi: number) => {
+    if (bmi < 18.5) return { category: 'Underweight', color: 'text-blue-600', bg: 'bg-blue-50' };
+    if (bmi < 25) return { category: 'Normal', color: 'text-green-600', bg: 'bg-green-50' };
+    if (bmi < 30) return { category: 'Overweight', color: 'text-yellow-600', bg: 'bg-yellow-50' };
+    return { category: 'Obese', color: 'text-red-600', bg: 'bg-red-50' };
   };
 
   const fetchPatientProfile = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/patients/profile`, { credentials: "include" });
-      if (!res.ok) throw new Error();
-      const data: PatientProfileData = await res.json();
+      const response = await fetch(`${API_BASE_URL}/api/patients/profile`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch patient profile");
+      }
+      const data: PatientProfileData = await response.json();
       setPatientData(data);
-      if (data.profileImage) setImage(data.profileImage);
-    } catch {
-      toast({ title: "Error", description: "Failed to load profile.", variant: "destructive" });
+      console.log(data);
+
+      if (data.profileImage) {
+        setImage(data.profileImage);
+      }
+    } catch (err) {
+      console.error("Error fetching patient profile:", err);
+      toast({
+        title: "Error",
+        description: "Failed to load profile data. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const uploadImage = async (file: File, method: "POST" | "PUT", endpoint: string) => {
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
     if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
-      toast({ title: "Error", description: "Only JPEG, PNG, or GIF images are allowed.", variant: "destructive" }); return;
+      toast({
+        title: "Error",
+        description: "Only JPEG, PNG, or GIF images are allowed.",
+        variant: "destructive",
+      });
+      return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Error", description: "Image must be under 5MB.", variant: "destructive" }); return;
+      toast({
+        title: "Error",
+        description: "Image size must be less than 5MB.",
+        variant: "destructive",
+      });
+      return;
     }
+
     setIsImageLoading(true);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append('file', file);
+
     try {
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, { method, credentials: "include", body: formData });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const data = await response.json();
       setImage(data.imageUrl);
       setShowImageActions(false);
-      toast({ title: "Success", description: "Profile photo updated." });
+      toast({
+        title: "Success",
+        description: "Profile image uploaded successfully!",
+      });
+
       fetchPatientProfile();
-    } catch {
-      toast({ title: "Error", description: "Failed to update image.", variant: "destructive" });
-    } finally { setIsImageLoading(false); }
+    } catch (err) {
+      console.error("Error uploading image:", err);
+      toast({
+        title: "Error",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImageLoading(false);
+    }
+  };
+
+  const handleImageUpdate = async (file: File) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+      toast({
+        title: "Error",
+        description: "Only JPEG, PNG, or GIF images are allowed.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "Image size must be less than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImageLoading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/update`, {
+        method: "PUT",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update image");
+      }
+
+      const data = await response.json();
+      setImage(data.imageUrl);
+      setShowImageActions(false);
+      toast({
+        title: "Success",
+        description: "Profile image updated successfully!",
+      });
+
+      fetchPatientProfile();
+    } catch (err) {
+      console.error("Error updating image:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImageLoading(false);
+    }
   };
 
   const handleImageDelete = async () => {
+    if (!confirm("Are you sure you want to remove your profile picture?")) {
+      return;
+    }
+
     setIsImageLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users/profile/image`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error();
-      setImage("");
+      const response = await fetch(`${API_BASE_URL}/api/users/profile/image`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete image");
+      }
+
+      setImage('');
       setShowImageActions(false);
-      toast({ title: "Success", description: "Profile photo removed." });
+      toast({
+        title: "Success",
+        description: "Profile image removed successfully!",
+      });
+
       fetchPatientProfile();
-    } catch {
-      toast({ title: "Error", description: "Failed to remove image.", variant: "destructive" });
-    } finally { setIsImageLoading(false); }
+    } catch (err) {
+      console.error("Error deleting image:", err);
+      toast({
+        title: "Error",
+        description: "Failed to remove image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImageLoading(false);
+    }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) image
-      ? uploadImage(file, "PUT",  "/api/users/profile/image/update")
-      : uploadImage(file, "POST", "/api/users/profile/image/upload");
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (image) {
+        handleImageUpdate(file);
+      } else {
+        handleImageUpload(file);
+      }
+    }
   };
 
-  useEffect(() => { fetchPatientProfile(); }, []);
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  useEffect(() => {
+    fetchPatientProfile();
+  }, []);
 
   if (isLoading) {
     return (
       <MainLayout userType="patient">
-        <div className="flex items-center justify-center h-80">
-          <div className="text-center">
-            <div className="w-10 h-10 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Loading profile…</p>
+        <div className="flex items-center justify-center h-96">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 animate-pulse">Loading your health profile...</p>
           </div>
         </div>
       </MainLayout>
     );
   }
 
-  const age = calculateAge(patientData?.birthDate);
-  const bmi = calculateBMI(patientData);
-  const bmiInfo = bmi ? getBMIInfo(parseFloat(bmi)) : null;
-  const initial = patientData?.name?.charAt(0)?.toUpperCase() || "P";
+  const bmi = calculateBMI();
+  const bmiInfo = bmi ? getBMICategory(parseFloat(bmi)) : null;
 
   return (
     <MainLayout userType="patient">
-      <div className="flex-1 px-6 py-6 bg-slate-50">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-
-            {/* ── Left column ── */}
-            <div className="lg:col-span-1 space-y-4">
-
-              {/* Avatar card */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="h-24 bg-gradient-to-r from-teal-600 via-emerald-500 to-cyan-500 relative">
-                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 50%, white 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
-                  <Link
-                    to="/patient/profile/edit"
-                    className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-xl text-white text-xs font-semibold transition-colors"
-                  >
-                    <Edit className="w-3 h-3" />
-                    Edit
-                  </Link>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
+        <div className="max-w-6xl mx-auto space-y-8 p-6">
+          {/* Enhanced Header with Health Theme */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-8 text-white shadow-2xl">
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="relative flex items-center justify-between">
+              <div className="space-y-2">
+                <h1 className="text-4xl font-bold tracking-tight">Health Profile</h1>
+                <p className="text-emerald-100 text-lg">Your personal health dashboard and information</p>
+              </div>
+              
+              <Link
+                to="/patient/profile/edit"
+                className="group relative overflow-hidden rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 px-6 py-3 text-white transition-all duration-300 hover:bg-white/30 hover:scale-105 hover:shadow-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <Edit className="w-5 h-5 transition-transform group-hover:rotate-12" />
+                  <span className="font-medium">Edit Profile</span>
                 </div>
+              </Link>
+            </div>
+            
+            {/* Decorative Health Icons */}
+            <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
+            <Heart className="absolute top-4 right-8 w-8 h-8 text-white/20" />
+            <Activity className="absolute bottom-4 left-8 w-6 h-6 text-white/20" />
+          </div>
 
-                <div className="px-5 pb-5">
-                  <div className="flex justify-center -mt-9 mb-4">
-                    <div className="relative">
-                      <div className="w-[72px] h-[72px] rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center">
-                        {isImageLoading ? (
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : image ? (
-                          <img src={image} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-2xl text-white font-bold">{initial}</span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setShowImageActions(!showImageActions)}
-                        disabled={isImageLoading}
-                        className="absolute -bottom-1 -right-1 w-6 h-6 bg-teal-500 hover:bg-teal-600 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
-                      >
-                        <Camera className="w-3 h-3" />
-                      </button>
-                      {showImageActions && (
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 w-44 z-20">
-                          <button onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5">
-                            <Upload className="w-4 h-4 text-gray-400" />
-                            {image ? "Update Photo" : "Upload Photo"}
-                          </button>
-                          {image && (
-                            <button onClick={handleImageDelete} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5">
-                              <Trash2 className="w-4 h-4" />
-                              Remove Photo
-                            </button>
-                          )}
-                        </div>
+          {/* Enhanced Profile Overview */}
+          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+            {/* Profile Header Section */}
+            <div className="relative bg-gradient-to-r from-gray-50 to-emerald-50 p-8 border-b border-gray-100">
+              <div className="flex flex-col lg:flex-row gap-8 items-start">
+                {/* Enhanced Profile Image Section */}
+                <div className="relative group">
+                  <div className="relative">
+                    <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center overflow-hidden shadow-2xl ring-4 ring-white transition-all duration-300 group-hover:scale-105">
+                      {isImageLoading ? (
+                        <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : image ? (
+                        <img 
+                          src={image} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-4xl text-white font-bold">
+                          {patientData?.name?.charAt(0) || 'P'}
+                        </span>
                       )}
                     </div>
-                  </div>
+                    
+                    {/* Enhanced Image Actions Button */}
+                    <button
+                      onClick={() => setShowImageActions(!showImageActions)}
+                      className="absolute -bottom-2 -right-2 w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full flex items-center justify-center hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 shadow-lg hover:scale-110 hover:shadow-xl group"
+                      disabled={isImageLoading}
+                    >
+                      <Camera className="w-5 h-5 transition-transform group-hover:rotate-12" />
+                    </button>
 
-                  <div className="text-center">
-                    <h1 className="text-lg font-bold text-gray-900">{patientData?.name || "Patient"}</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">Patient</p>
+                    {/* Enhanced Image Actions Dropdown */}
+                    {showImageActions && (
+                      <div className="absolute top-full right-0 mt-4 bg-white border border-gray-200 rounded-2xl shadow-2xl py-2 min-w-52 z-10 backdrop-blur-sm">
+                        <button
+                          onClick={triggerFileInput}
+                          className="w-full px-6 py-3 text-left text-sm hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50 flex items-center gap-3 transition-all duration-200 text-gray-700 hover:text-emerald-600"
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span className="font-medium">{image ? 'Update Photo' : 'Upload Photo'}</span>
+                        </button>
+                        {image && (
+                          <button
+                            onClick={handleImageDelete}
+                            className="w-full px-6 py-3 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-3 transition-all duration-200"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="font-medium">Remove Photo</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="flex flex-wrap justify-center gap-1.5 mt-4">
-                    {age != null && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-700 text-xs font-semibold rounded-full border border-teal-100">
-                        <User className="w-3 h-3" />{age} years
-                      </span>
-                    )}
-                    {patientData?.gender && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 text-gray-600 text-xs font-semibold rounded-full border border-gray-100">
-                        {patientData.gender}
-                      </span>
-                    )}
-                    {patientData?.bloodType && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 text-xs font-semibold rounded-full border border-red-100">
-                        <Droplet className="w-3 h-3" />{patientData.bloodType}
-                      </span>
-                    )}
+                  
+                  {/* Health Status Indicator */}
+                  <div className="absolute -top-1 -left-1 w-6 h-6 bg-green-400 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                    <Heart className="w-3 h-3 text-green-600 fill-current animate-pulse" />
                   </div>
                 </div>
-              </div>
 
-              {/* Health metrics */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Health Metrics</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: "Height", value: patientData?.heightCm ? `${patientData.heightCm} cm` : "—", icon: <Ruler className="w-3.5 h-3.5" />, color: "text-sky-600 bg-sky-50 border-sky-100" },
-                    { label: "Weight", value: patientData?.weightKg ? `${patientData.weightKg} kg` : "—", icon: <Weight className="w-3.5 h-3.5" />, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
-                    { label: "Blood Type", value: patientData?.bloodType || "—", icon: <Droplet className="w-3.5 h-3.5" />, color: "text-red-600 bg-red-50 border-red-100" },
-                    {
-                      label: "BMI",
-                      value: bmi ? `${bmi}` : "—",
-                      sub: bmiInfo?.label,
-                      icon: <Activity className="w-3.5 h-3.5" />,
-                      color: bmiInfo ? `${bmiInfo.color} ${bmiInfo.bg}` : "text-gray-600 bg-gray-50 border-gray-100",
-                    },
-                  ].map(({ label, value, icon, color, sub }: any) => (
-                    <div key={label} className={`rounded-xl border p-3 ${color}`}>
-                      <div className="flex items-center gap-1 opacity-70 mb-1">{icon}<p className="text-xs font-semibold">{label}</p></div>
-                      <p className="text-sm font-bold">{value}</p>
-                      {sub && <p className="text-xs opacity-70">{sub}</p>}
+                {/* Enhanced Profile Info */}
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">{patientData?.name || 'Patient'}</h2>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-medium">
+                        <User className="w-4 h-4 mr-2" />
+                        Age: {calculateAge(patientData?.birthDate)}
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        {patientData?.gender || 'N/A'}
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-800 font-medium">
+                        <Droplet className="w-4 h-4 mr-2" />
+                        {patientData?.bloodType || 'N/A'}
+                      </span>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Health Metrics Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-500">Height</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {patientData?.heightCm ? `${patientData.heightCm} cm` : 'N/A'}
+                          </p>
+                        </div>
+                        <Ruler className="w-8 h-8 text-blue-500" />
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-500">Weight</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {patientData?.weightKg ? `${patientData.weightKg} kg` : 'N/A'}
+                          </p>
+                        </div>
+                        <Weight className="w-8 h-8 text-emerald-500" />
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-500">BMI</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {bmi ? `${bmi}` : 'N/A'}
+                          </p>
+                          {bmiInfo && (
+                            <p className={`text-xs ${bmiInfo.color} font-medium`}>
+                              {bmiInfo.category}
+                            </p>
+                          )}
+                        </div>
+                        <TrendingUp className="w-8 h-8 text-purple-500" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Member since */}
-              {patientData?.createdAt && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-                  <Calendar className="w-5 h-5 text-gray-300 mx-auto mb-1.5" />
-                  <p className="text-xs text-gray-400 font-medium">Member since</p>
-                  <p className="text-sm font-semibold text-gray-700 mt-0.5">
-                    {new Date(patientData.createdAt).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* ── Right column ── */}
-            <div className="lg:col-span-2 space-y-4">
-
-              {/* Contact */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Contact Information</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { icon: <Mail className="w-4 h-4" />, label: "Email Address", value: patientData?.email, accent: "text-teal-400 bg-teal-50 border-teal-100" },
-                    { icon: <Phone className="w-4 h-4" />, label: "Phone Number", value: patientData?.phone, accent: "text-emerald-400 bg-emerald-50 border-emerald-100" },
-                  ].map(({ icon, label, value, accent }) => (
-                    <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/60">
-                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${accent}`}>
-                        {icon}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-400 font-medium">{label}</p>
-                        <p className="text-sm font-semibold text-gray-800 truncate">{value || "—"}</p>
-                      </div>
-                    </div>
-                  ))}
+            {/* Enhanced Contact Information */}
+            <div className="p-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-emerald-500" />
+                Contact Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Email Address</p>
+                    <p className="font-medium text-gray-900">{patientData?.email || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Phone className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Phone Number</p>
+                    <p className="font-medium text-gray-900">{patientData?.phone || 'N/A'}</p>
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Personal */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Personal Details</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { label: "Gender", value: patientData?.gender, color: "bg-teal-50 border-teal-100 text-teal-800" },
-                    {
-                      label: "Date of Birth",
-                      value: patientData?.birthDate
-                        ? new Date(patientData.birthDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                        : null,
-                      color: "bg-emerald-50 border-emerald-100 text-emerald-800",
-                    },
-                    { label: "Age", value: age != null ? `${age} years` : null, color: "bg-cyan-50 border-cyan-100 text-cyan-800" },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} className={`rounded-xl border p-4 ${color}`}>
-                      <p className="text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">{label}</p>
-                      <p className="text-sm font-bold">{value || "—"}</p>
+          {/* Enhanced Medical Information Sections */}
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Vital Statistics */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-emerald-500" />
+                Vital Statistics
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-100">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <Ruler className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Height</p>
+                    <p className="text-sm text-gray-600">
+                      {patientData?.heightCm ? `${patientData.heightCm} cm` : 'Not recorded'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Weight className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Weight</p>
+                    <p className="text-sm text-gray-600">
+                      {patientData?.weightKg ? `${patientData.weightKg} kg` : 'Not recorded'}
+                    </p>
+                  </div>
+                </div>
+                {bmi && bmiInfo && (
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border ${bmiInfo.bg} border-current/20`}>
+                    <div className="w-10 h-10 bg-white/80 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-current" />
                     </div>
-                  ))}
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">BMI Index</p>
+                      <p className={`text-sm ${bmiInfo.color} font-medium`}>
+                        {bmi} - {bmiInfo.category}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Blood & Health Info */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-red-500" />
+                Blood & Health Information
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-100">
+                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Droplet className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Blood Type</p>
+                    <p className="text-sm text-gray-600">
+                      {patientData?.bloodType || 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-100">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Health Status</p>
+                    <p className="text-sm text-emerald-600 font-medium">Active Profile</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-100">
+                  <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Date of Birth</p>
+                    <p className="text-sm text-gray-600">
+                      {patientData?.birthDate ? new Date(patientData.birthDate).toLocaleDateString() : 'Not specified'}
+                    </p>
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Medical info */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Medical Information</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { label: "Blood Type", value: patientData?.bloodType, color: "bg-red-50 border-red-100 text-red-800" },
-                    { label: "Height", value: patientData?.heightCm ? `${patientData.heightCm} cm` : null, color: "bg-sky-50 border-sky-100 text-sky-800" },
-                    { label: "Weight", value: patientData?.weightKg ? `${patientData.weightKg} kg` : null, color: "bg-violet-50 border-violet-100 text-violet-800" },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} className={`rounded-xl border p-4 ${color}`}>
-                      <p className="text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">{label}</p>
-                      <p className="text-sm font-bold">{value || "—"}</p>
-                    </div>
-                  ))}
+          {/* Health Tips Section */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-green-500" />
+              Health Tips & Reminders
+            </h3>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Activity className="w-6 h-6 text-blue-600" />
                 </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Stay Active</h4>
+                <p className="text-sm text-gray-600">Regular exercise helps maintain good health</p>
               </div>
-
-              {/* Edit CTA */}
-              <div className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl border border-teal-100 p-5 flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-800 text-sm">Keep your profile up to date</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Accurate information helps your doctors provide better care</p>
+              <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-6 h-6 text-green-600" />
                 </div>
-                <Link
-                  to="/patient/profile/edit"
-                  className="flex items-center gap-1.5 px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex-shrink-0"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  Edit Profile
-                </Link>
+                <h4 className="font-semibold text-gray-900 mb-2">Heart Health</h4>
+                <p className="text-sm text-gray-600">Monitor your cardiovascular wellness</p>
+              </div>
+              <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="w-6 h-6 text-purple-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Regular Checkups</h4>
+                <p className="text-sm text-gray-600">Schedule routine health examinations</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-      {showImageActions && <div className="fixed inset-0 z-10" onClick={() => setShowImageActions(false)} />}
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {/* Click outside to close dropdown */}
+      {showImageActions && (
+        <div
+          className="fixed inset-0 z-5"
+          onClick={() => setShowImageActions(false)}
+        />
+      )}
     </MainLayout>
   );
 };

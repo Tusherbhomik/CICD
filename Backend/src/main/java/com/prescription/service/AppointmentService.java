@@ -67,8 +67,7 @@ public class AppointmentService {
             Appointment appointment = appointmentOpt.get();
             if (appointment.getPatient().getId().equals(patientId) &&
                     (appointment.getStatus() == Appointment.Status.REQUESTED ||
-                            appointment.getStatus() == Appointment.Status.SCHEDULED ||
-                            appointment.getStatus() == Appointment.Status.CONFIRMED)) {
+                            appointment.getStatus() == Appointment.Status.SCHEDULED)) {
                 appointment.setStatus(Appointment.Status.CANCELLED);
                 appointmentRepository.save(appointment);
 
@@ -137,7 +136,8 @@ public class AppointmentService {
         if (appointmentOpt.isPresent()) {
             Appointment appointment = appointmentOpt.get();
             if (appointment.getDoctor().getId().equals(doctorId) &&
-                    appointment.getStatus() == Appointment.Status.CONFIRMED) {
+                    (appointment.getStatus() == Appointment.Status.SCHEDULED ||
+                            appointment.getStatus() == Appointment.Status.CONFIRMED)) {
                 appointment.setStatus(Appointment.Status.COMPLETED);
                 if (notes != null && !notes.trim().isEmpty()) {
                     appointment.setNotes(notes);
@@ -251,7 +251,6 @@ public class AppointmentService {
 
         Hospital hospital=hospitalRepository.getById(hospitalId);
         Appointment appointment = new Appointment(LocalDateTime.of(appointmentDate, appointmentTime), type, doctor, patient,hospital,dateandtime);
-        appointment.setStatus(Appointment.Status.REQUESTED);
         appointment.setNotes(reason);
         appointment.setFollowupDate(LocalDateTime.of(appointmentDate, appointmentTime));
         appointment.setCreatedAt(LocalDateTime.now());
@@ -305,16 +304,13 @@ public class AppointmentService {
             throw new IllegalStateException("Appointment is not in pending status");
         }
 
-        // Check for scheduling conflicts (exclude the appointment being confirmed)
+        // Check for scheduling conflicts
         List<Appointment> conflictingAppointments = appointmentRepository
                 .findByDoctorAndScheduledTimeBetween(
                         appointment.getDoctor(),
                         scheduledTime.minusMinutes(30),
                         scheduledTime.plusMinutes(30)
-                ).stream()
-                .filter(a -> !a.getId().equals(appointmentId) &&
-                        a.getStatus() == Appointment.Status.CONFIRMED)
-                .collect(java.util.stream.Collectors.toList());
+                );
 
         if (!conflictingAppointments.isEmpty()) {
             throw new IllegalStateException("Doctor has a conflicting appointment at this time");
@@ -324,7 +320,7 @@ public class AppointmentService {
         appointment.setType(type);
 
         appointment.setNotes(notes);
-        appointment.setStatus(Appointment.Status.CONFIRMED);
+        appointment.setStatus(Appointment.Status.SCHEDULED);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
@@ -351,6 +347,7 @@ public class AppointmentService {
                 .orElseThrow(() -> new EntityNotFoundException("Doctor not found"));
 
         List<Appointment.Status> confirmedStatuses = Arrays.asList(
+                Appointment.Status.SCHEDULED,
                 Appointment.Status.CONFIRMED
         );
         return appointmentRepository.findByDoctorAndStatusInOrderByScheduledTimeAsc(doctor, confirmedStatuses);

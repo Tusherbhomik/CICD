@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -93,13 +93,10 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-sans;
+    @apply font-heading;
   }
 }
 
@@ -109,27 +106,27 @@
   }
 
   .page-title {
-    @apply text-xl font-bold text-slate-900 mb-4;
+    @apply text-3xl font-bold text-gray-900 mb-6 font-heading;
   }
 
   .page-subtitle {
-    @apply text-sm font-medium text-slate-500 mb-4;
+    @apply text-xl font-medium text-gray-700 mb-4 font-heading;
   }
-
+  
   .form-container {
-    @apply bg-white p-8 rounded-2xl shadow-md border border-slate-100;
+    @apply bg-white p-8 rounded-xl shadow-md border border-gray-100;
   }
-
+  
   .form-section {
     @apply mb-8;
   }
-
+  
   .form-group {
     @apply mb-6;
   }
-
+  
   .form-label {
-    @apply block text-sm font-medium text-slate-700 mb-2;
+    @apply block text-sm font-medium text-gray-700 mb-2;
   }
 
   .btn-primary {
@@ -141,73 +138,14 @@
   }
 
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-slate-100 p-6 hover:shadow-md transition-all duration-200;
-  }
-
-  .card-gradient {
-    @apply rounded-2xl p-6 shadow-sm border border-white/10;
-  }
-
-  .stat-card {
-    @apply bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all duration-200;
+    @apply bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition-shadow;
   }
 
   .nav-link {
-    @apply flex items-center gap-2 px-4 py-2 rounded-lg text-slate-700 hover:bg-accent hover:text-accent-foreground transition-colors;
+    @apply flex items-center gap-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-accent hover:text-accent-foreground transition-colors;
   }
 
   .nav-link.active {
     @apply bg-primary text-primary-foreground;
   }
-
-  /* Status badge variants */
-  .badge-confirmed  { @apply px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700; }
-  .badge-requested  { @apply px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700; }
-  .badge-completed  { @apply px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700; }
-  .badge-cancelled  { @apply px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700; }
-  .badge-scheduled  { @apply px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700; }
-
-  /* Gradient text */
-  .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-medical-primary to-medical-secondary;
-  }
-
-  /* Page wrapper for dashboards */
-  .dashboard-page {
-    @apply space-y-6;
-  }
-
-  /* Section headers */
-  .section-header {
-    @apply flex items-center justify-between mb-5;
-  }
-
-  .section-title {
-    @apply text-lg font-bold text-slate-800 flex items-center gap-2;
-  }
-}
-
-@layer utilities {
-  /* Smooth loading skeleton animation */
-  .skeleton {
-    @apply bg-slate-100 animate-pulse rounded-lg;
-  }
-
-  /* Subtle hover lift */
-  .hover-lift {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
-  }
-
-  /* Glass effect */
-  .glass {
-    @apply bg-white/10 backdrop-blur border border-white/20;
-  }
-
-  /* Gradient backgrounds */
-  .bg-gradient-primary { background: linear-gradient(135deg, #0EA5E9, #0369A1); }
-  .bg-gradient-success { background: linear-gradient(135deg, #10B981, #0D9488); }
-  .bg-gradient-warning { background: linear-gradient(135deg, #F59E0B, #D97706); }
-  .bg-gradient-danger  { background: linear-gradient(135deg, #EF4444, #DC2626); }
-  .bg-gradient-purple  { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
-  .bg-gradient-dark    { background: linear-gradient(135deg, #1E293B, #0F172A); }
 }

@@ -15,6 +15,7 @@ import com.prescription.repository.PatientRepository;
 import com.prescription.repository.UserRepository;
 import com.prescription.util.JwtUtil;
 import jakarta.validation.Valid;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

@@ -14,6 +14,7 @@ import {
   Clock,
   Download,
   FileText,
+  Filter,
   Pill,
   Search,
   User,
@@ -82,220 +83,441 @@ const DoctorPrescriptions = () => {
     setExpandedPrescriptions(newExpanded);
   };
 
-  // ── Shared premium prescription PDF ─────────────────────────────
-  const buildPrescriptionHTML = (prescription) => {
-    const fmt = (s: string, map: Record<string, string>) => map[s] || s.replace(/_/g, " ");
-    const mealMap: Record<string, string> = {
-      BEFORE_MEAL: "Before Meal", AFTER_MEAL: "After Meal",
-      WITH_MEAL: "With Meal", EMPTY_STOMACH: "Empty Stomach", ANY_TIME: "Any Time",
-    };
-    const timeMap: Record<string, string> = {
-      MORNING: "Morning", AFTERNOON: "Afternoon", EVENING: "Evening",
-      NIGHT: "Night", BEDTIME: "Bedtime", FIXED_TIME: "Fixed Time", INTERVAL: "Interval",
-    };
+  const downloadPrescriptionPDF = async (prescription) => {
+    try {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
 
-    const issueDate = new Date(prescription.issueDate).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
-    });
-    const followUpDate = prescription.followUpDate
-      ? new Date(prescription.followUpDate).toLocaleDateString("en-US", {
-          year: "numeric", month: "long", day: "numeric",
-        })
-      : "—";
-    const generatedOn = new Date().toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
-    });
+      const loadScript = (): Promise<void> => {
+        return new Promise<void>((resolve, reject) => {
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load jsPDF"));
+          document.head.appendChild(script);
+        });
+      };
 
-    const medicinesHTML = prescription.medicines.map((med, idx) => `
-      <div class="rx-item">
-        <div class="rx-item-head">
-          <div class="rx-num">${idx + 1}</div>
-          <div class="rx-drug">
-            <span class="rx-drug-name">${med.medicine.name}</span>
-            <span class="rx-drug-sub">${med.medicine.genericName} &nbsp;·&nbsp; ${med.medicine.strength} &nbsp;·&nbsp; ${med.medicine.form}</span>
-          </div>
-          <div class="rx-dur-badge">${med.durationDays} days</div>
-        </div>
-        <div class="rx-item-body">
-          <table class="dose-table">
-            <thead><tr><th>Time</th><th>Dose</th><th>Meal Relation</th></tr></thead>
-            <tbody>
-              ${med.timings.map(t => `
-                <tr>
-                  <td>${fmt(t.timeOfDay, timeMap)}${t.specificTime ? " <span class='t-sub'>(" + t.specificTime + ")</span>" : ""}</td>
-                  <td><span class="dose-pill">${t.amount} ${med.medicine.form.toLowerCase()}</span></td>
-                  <td>${fmt(t.mealRelation, mealMap)}</td>
-                </tr>`).join("")}
-            </tbody>
-          </table>
-          ${med.specialInstructions ? `<div class="rx-note"><span class="rx-note-icon">⚠</span>${med.specialInstructions}</div>` : ""}
-        </div>
-      </div>`).join("");
+      await loadScript();
 
-    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
-<title>Prescription #${String(prescription.id).padStart(5,"0")}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:#e8edf2;color:#1e293b;font-size:13px;line-height:1.55;}
-.page{width:794px;min-height:1123px;margin:24px auto;background:#fff;display:flex;flex-direction:column;box-shadow:0 4px 40px rgba(0,0,0,.18);position:relative;overflow:hidden;}
-.page::before{content:'PRESCRIPTION';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:88px;font-weight:800;color:rgba(14,165,233,.04);letter-spacing:6px;pointer-events:none;white-space:nowrap;z-index:0;}
-.hdr{background:linear-gradient(120deg,#0c1445 0%,#1e3a8a 55%,#0284c7 100%);padding:26px 36px 20px;color:#fff;position:relative;overflow:hidden;}
-.hdr::after{content:'';position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.05);}
-.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
-.brand{display:flex;align-items:center;gap:12px;}
-.brand-icon{width:46px;height:46px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;}
-.b-name{font-size:22px;font-weight:800;letter-spacing:-.5px;}
-.b-tag{font-size:11px;color:rgba(255,255,255,.55);margin-top:1px;}
-.rx-symbol{font-size:52px;font-weight:800;font-style:italic;color:rgba(255,255,255,.85);letter-spacing:-3px;line-height:1;}
-.hdr-sep{height:1px;background:rgba(255,255,255,.15);margin-bottom:14px;}
-.hdr-foot{display:flex;justify-content:space-between;align-items:flex-end;}
-.doc-name{font-size:17px;font-weight:700;}
-.doc-spec{font-size:12px;color:rgba(255,255,255,.65);margin-top:3px;}
-.pid-block{text-align:right;}
-.pid-label{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.6px;}
-.pid-val{font-size:22px;font-weight:800;color:#7dd3fc;letter-spacing:-1px;}
-.body{padding:22px 36px;flex:1;position:relative;z-index:1;}
-.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
-.info-box{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;}
-.info-box-head{background:#f8fafc;padding:7px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid #e2e8f0;}
-.info-box-body{padding:10px 14px;}
-.info-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;}
-.info-row:last-child{border-bottom:none;}
-.info-k{font-size:11px;color:#94a3b8;font-weight:500;}
-.info-v{font-size:12px;color:#0f172a;font-weight:600;text-align:right;max-width:60%;}
-.dates-strip{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
-.date-chip{display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:9px;font-size:12px;}
-.date-chip.issue{background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;}
-.date-chip.followup{background:#fdf4ff;border:1px solid #e9d5ff;color:#7e22ce;}
-.dc-icon{font-size:17px;}
-.dc-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;opacity:.65;display:block;}
-.dc-val{font-weight:600;}
-.sec-label{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-.sec-label::before{content:'';width:3px;height:14px;background:linear-gradient(to bottom,#0ea5e9,#818cf8);border-radius:2px;display:inline-block;}
-.diag-box{background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #bfdbfe;border-left:3px solid #3b82f6;border-radius:9px;padding:11px 14px;font-size:13px;font-weight:600;color:#1d4ed8;margin-bottom:18px;}
-.rx-item{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:10px;}
-.rx-item:last-child{margin-bottom:0;}
-.rx-item-head{display:flex;align-items:center;gap:11px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);padding:9px 13px;border-bottom:1px solid #e2e8f0;}
-.rx-num{width:26px;height:26px;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
-.rx-drug{flex:1;}
-.rx-drug-name{display:block;font-size:13.5px;font-weight:700;color:#0f172a;}
-.rx-drug-sub{display:block;font-size:11px;color:#64748b;margin-top:1px;}
-.rx-dur-badge{background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;}
-.rx-item-body{padding:10px 13px;}
-.dose-table{width:100%;border-collapse:collapse;font-size:11.5px;}
-.dose-table th{background:#f8fafc;padding:5px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;}
-.dose-table td{padding:5px 10px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle;}
-.dose-table tr:last-child td{border-bottom:none;}
-.dose-pill{background:#e0f2fe;color:#0369a1;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
-.t-sub{color:#94a3b8;font-size:10px;}
-.rx-note{display:flex;align-items:flex-start;gap:6px;background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:7px 10px;font-size:11px;color:#92400e;margin-top:8px;}
-.rx-note-icon{color:#d97706;font-size:14px;flex-shrink:0;margin-top:-1px;}
-.advice-box{background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #bbf7d0;border-left:3px solid #22c55e;border-radius:9px;padding:11px 14px;font-size:12.5px;color:#14532d;margin-bottom:18px;line-height:1.65;}
-.ftr{margin-top:auto;border-top:1px solid #e2e8f0;padding:14px 36px;display:flex;justify-content:space-between;align-items:flex-end;background:#f8fafc;position:relative;z-index:1;}
-.sig-area{text-align:center;}
-.sig-line{width:160px;height:1px;background:#334155;margin:0 auto 5px;}
-.sig-name{font-size:12.5px;font-weight:700;color:#1e293b;}
-.sig-title{font-size:10px;color:#94a3b8;margin-top:1px;}
-.ftr-right{text-align:right;font-size:10px;color:#94a3b8;line-height:1.8;}
-.conf-badge{display:inline-block;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:2px 8px;border-radius:4px;margin-bottom:3px;}
-@media print{body{background:#fff;}.page{box-shadow:none;margin:0;width:100%;min-height:100vh;}@page{margin:0;size:A4 portrait;}}
-</style></head><body>
-<div class="page">
-<div class="hdr">
-  <div class="hdr-top">
-    <div class="brand"><div class="brand-icon">❤</div><div><div class="b-name">HealthSync</div><div class="b-tag">Digital Health Management Platform</div></div></div>
-    <div class="rx-symbol">Rx</div>
-  </div>
-  <div class="hdr-sep"></div>
-  <div class="hdr-foot">
-    <div><div class="doc-name">Dr. ${prescription.doctor.name}</div><div class="doc-spec">${prescription.doctor.specialization || "General Physician"}${prescription.doctor.email ? " &nbsp;·&nbsp; " + prescription.doctor.email : ""}</div></div>
-    <div class="pid-block"><div class="pid-label">Prescription ID</div><div class="pid-val">#${String(prescription.id).padStart(5,"0")}</div></div>
-  </div>
-</div>
-<div class="body">
-  <div class="info-grid">
-    <div class="info-box">
-      <div class="info-box-head">Patient Information</div>
-      <div class="info-box-body">
-        <div class="info-row"><span class="info-k">Full Name</span><span class="info-v">${prescription.patient.name}</span></div>
-        <div class="info-row"><span class="info-k">Patient ID</span><span class="info-v">#${prescription.patient.id}</span></div>
-        ${prescription.patient.email ? `<div class="info-row"><span class="info-k">Email</span><span class="info-v">${prescription.patient.email}</span></div>` : ""}
-        ${prescription.patient.phone ? `<div class="info-row"><span class="info-k">Phone</span><span class="info-v">${prescription.patient.phone}</span></div>` : ""}
-        ${prescription.patient.gender ? `<div class="info-row"><span class="info-k">Gender</span><span class="info-v">${prescription.patient.gender}</span></div>` : ""}
-      </div>
-    </div>
-    <div class="info-box">
-      <div class="info-box-head">Physician Information</div>
-      <div class="info-box-body">
-        <div class="info-row"><span class="info-k">Doctor</span><span class="info-v">Dr. ${prescription.doctor.name}</span></div>
-        <div class="info-row"><span class="info-k">Specialization</span><span class="info-v">${prescription.doctor.specialization || "General Physician"}</span></div>
-        ${prescription.doctor.email ? `<div class="info-row"><span class="info-k">Email</span><span class="info-v">${prescription.doctor.email}</span></div>` : ""}
-        ${prescription.doctor.phone ? `<div class="info-row"><span class="info-k">Phone</span><span class="info-v">${prescription.doctor.phone}</span></div>` : ""}
-      </div>
-    </div>
-  </div>
-  <div class="dates-strip">
-    <div class="date-chip issue"><span class="dc-icon">📅</span><div><span class="dc-label">Issue Date</span><span class="dc-val">${issueDate}</span></div></div>
-    <div class="date-chip followup"><span class="dc-icon">🔁</span><div><span class="dc-label">Follow-up Date</span><span class="dc-val">${followUpDate}</span></div></div>
-  </div>
-  <div class="sec-label">Diagnosis</div>
-  <div class="diag-box">${prescription.diagnosis}</div>
-  <div class="sec-label">Prescribed Medications (${prescription.medicines.length})</div>
-  ${medicinesHTML}
-  ${prescription.advice ? `<div style="margin-top:14px;"><div class="sec-label">Doctor's Advice</div><div class="advice-box">${prescription.advice}</div></div>` : ""}
-</div>
-<div class="ftr">
-  <div class="sig-area"><div class="sig-line"></div><div class="sig-name">Dr. ${prescription.doctor.name}</div><div class="sig-title">Authorized Signature &nbsp;·&nbsp; ${prescription.doctor.specialization || "Physician"}</div></div>
-  <div class="ftr-right"><div class="conf-badge">Confidential Medical Document</div><div>Generated: ${generatedOn}</div><div>HealthSync &nbsp;·&nbsp; Digital Health Platform</div></div>
-</div>
-</div></body></html>`;
+      if (!window.jspdf?.jsPDF) {
+        throw new Error("jsPDF library failed to load");
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPosition = 20;
+
+      const addNewPageIfNeeded = (spaceNeeded: number = 30) => {
+        if (yPosition + spaceNeeded > pageHeight - 40) {
+          doc.addPage();
+          yPosition = 20;
+          addHeader();
+          // addWatermark();
+        }
+      };
+
+      const addHeader = () => {
+        // Gradient header
+        for (let i = 0; i < 50; i++) {
+          doc.setFillColor(33, 150 - i * 2, 243);
+          doc.rect(0, i, pageWidth, 1, "F");
+        }
+
+        // Logo placeholder
+        doc.setFillColor(255, 255, 255);
+        doc.rect(margin, 10, 30, 30, "F");
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.2);
+        doc.rect(margin, 10, 30, 30);
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Logo", margin + 10, 25, { align: "center" });
+
+        // Title
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text("Medical Prescription", margin + 40, 25);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Dr. ${prescription.doctor.name}`, margin + 40, 35);
+
+        // Rx Symbol
+        doc.setFontSize(32);
+        doc.setTextColor(255, 255, 255);
+        doc.text("Rx", pageWidth - 40, 35);
+
+        // Header line
+        doc.setLineWidth(0.3);
+        doc.setDrawColor(255, 255, 255);
+        doc.line(margin, 50, pageWidth - margin, 50);
+        yPosition = 60;
+      };
+
+      // const addWatermark = () => {
+      //   doc.setFontSize(40);
+      //   doc.setTextColor(200, 200, 200);
+      //   doc.setFont("helvetica", "italic");
+      // };
+
+      // First page setup
+      addHeader();
+      // addWatermark();
+
+      // Doctor Information
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 33, 33);
+      doc.text("Physician Details", margin, yPosition);
+      yPosition += 10;
+
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 25, "F");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(66, 66, 66);
+      yPosition += 7;
+      doc.text(prescription.doctor.name, margin + 5, yPosition);
+      yPosition += 5;
+      if (prescription.doctor.specialization) {
+        doc.text(
+          `Specialization: ${prescription.doctor.specialization}`,
+          margin + 5,
+          yPosition
+        );
+        yPosition += 5;
+      }
+      if (prescription.doctor.contactNumber) {
+        doc.text(
+          `Contact: ${prescription.doctor.contactNumber}`,
+          margin + 5,
+          yPosition
+        );
+        yPosition += 5;
+      }
+      yPosition += 10;
+
+      // Patient Information
+      const tableWidth = pageWidth - 2 * margin;
+      const colWidth = tableWidth / 3;
+      const rowHeight = 12;
+
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 33, 33);
+      doc.text("Patient Details", margin, yPosition);
+      yPosition += 10;
+
+      // Patient info table
+      doc.setFillColor(235, 245, 255);
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.2);
+      doc.rect(margin, yPosition, tableWidth, rowHeight, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(33, 33, 33);
+      doc.text("Name", margin + 5, yPosition + 8);
+      doc.text("Date", margin + colWidth + 5, yPosition + 8);
+      // doc.text("Patient ID", margin + 2 * colWidth + 5, yPosition + 8);
+      yPosition += rowHeight;
+
+      doc.setFillColor(255, 255, 255);
+      doc.rect(margin, yPosition, tableWidth, rowHeight, "FD");
+      doc.setFont("helvetica", "normal");
+      doc.text(prescription.patient.name, margin + 5, yPosition + 8);
+      doc.text(
+        formatDate(prescription.issueDate),
+        margin + colWidth + 5,
+        yPosition + 8
+      );
+      doc.text(
+        prescription.patient.id.toString(),
+        margin + 2 * colWidth + 5,
+        yPosition + 8
+      );
+      yPosition += rowHeight + 15;
+
+      // Diagnosis
+      addNewPageIfNeeded(30);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 33, 33);
+      doc.text("Diagnosis", margin, yPosition);
+      yPosition += 10;
+
+      doc.setFillColor(245, 245, 245);
+      const diagnosisHeight = 25;
+      doc.rect(margin, yPosition, tableWidth, diagnosisHeight, "FD");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(66, 66, 66);
+      const diagnosisLines = doc.splitTextToSize(
+        prescription.diagnosis,
+        tableWidth - 10
+      );
+      let diagnosisY = yPosition + 7;
+      diagnosisLines.forEach((line: string) => {
+        doc.text(line, margin + 5, diagnosisY);
+        diagnosisY += 5;
+      });
+      yPosition += diagnosisHeight + 15;
+
+      // Medications
+      addNewPageIfNeeded(40);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 33, 33);
+      doc.text("Medications", margin, yPosition);
+      yPosition += 10;
+
+      prescription.medicines.forEach((medicineItem, index) => {
+        const baseSpace = 30;
+        const timingSpace = medicineItem.timings.length * 6;
+        const instructionSpace = medicineItem.specialInstructions ? 12 : 0;
+        const totalSpace = baseSpace + timingSpace + instructionSpace;
+
+        addNewPageIfNeeded(totalSpace);
+
+        // Medicine header
+        doc.setFillColor(230, 242, 255);
+        doc.setDrawColor(33, 150, 243);
+        doc.setLineWidth(0.3);
+        doc.rect(margin, yPosition, tableWidth, 14, "FD");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(33, 33, 33);
+        doc.text(
+          `${index + 1}. ${medicineItem.medicine.name} (${
+            medicineItem.medicine.strength
+          })`,
+          margin + 5,
+          yPosition + 10
+        );
+        yPosition += 14;
+
+        // Medicine details
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(margin, yPosition, tableWidth, 10, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(66, 66, 66);
+        doc.text(
+          `${medicineItem.medicine.genericName} | ${medicineItem.medicine.form} | ${medicineItem.durationDays} days`,
+          margin + 5,
+          yPosition + 7
+        );
+        yPosition += 10;
+
+        // Dosage schedule
+        doc.setFillColor(240, 248, 255);
+        const dosageHeight = medicineItem.timings.length * 6 + 6;
+        doc.rect(margin, yPosition, tableWidth, dosageHeight, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        let dosageY = yPosition + 5;
+        medicineItem.timings.forEach((timing) => {
+          const timeOfDayFormatted =
+            timing.timeOfDay.charAt(0) +
+            timing.timeOfDay.slice(1).toLowerCase();
+          const mealFormatted = timing.mealRelation
+            .replace("_", " ")
+            .toLowerCase();
+          const dosageText = `${
+            timing.amount
+          } ${medicineItem.medicine.form.toLowerCase()}, ${timeOfDayFormatted} (${
+            timing.specificTime
+          }), ${mealFormatted}`;
+          doc.text(dosageText, margin + 7, dosageY);
+          dosageY += 6;
+        });
+        yPosition += dosageHeight;
+
+        // Special instructions
+        if (medicineItem.specialInstructions) {
+          doc.setFillColor(255, 245, 230);
+          doc.setDrawColor(255, 165, 0);
+          doc.rect(margin, yPosition, tableWidth, 10, "FD");
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8);
+          doc.setTextColor(139, 69, 19);
+          const instructionText = doc.splitTextToSize(
+            `Note: ${medicineItem.specialInstructions}`,
+            tableWidth - 10
+          );
+          doc.text(instructionText[0], margin + 5, yPosition + 7);
+          yPosition += 10;
+          if (instructionText.length > 1) {
+            doc.text(instructionText[1], margin + 5, yPosition + 7);
+            yPosition += 10;
+          }
+        }
+
+        yPosition += 8;
+      });
+
+      // Advice section
+      if (prescription.advice) {
+        yPosition += 5;
+        addNewPageIfNeeded(30);
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(33, 33, 33);
+        doc.text("Doctor's Advice", margin, yPosition);
+        yPosition += 10;
+
+        doc.setFillColor(235, 245, 235);
+        doc.setDrawColor(76, 175, 80);
+        const adviceLines = doc.splitTextToSize(
+          prescription.advice,
+          tableWidth - 10
+        );
+        const adviceHeight = Math.max(20, adviceLines.length * 6 + 6);
+        doc.rect(margin, yPosition, tableWidth, adviceHeight, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(27, 94, 32);
+        let adviceY = yPosition + 7;
+        adviceLines.forEach((line: string) => {
+          doc.text(line, margin + 5, adviceY);
+          adviceY += 6;
+        });
+        yPosition += adviceHeight + 15;
+      }
+
+      // Footer
+      addNewPageIfNeeded(30);
+      doc.setFillColor(245, 245, 245);
+      doc.rect(0, pageHeight - 30, pageWidth, 30, "F");
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 33, 33);
+      doc.text("Physician Signature:", pageWidth - 80, yPosition);
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(33, 150, 243);
+      doc.line(pageWidth - 80, yPosition + 5, pageWidth - 20, yPosition + 5);
+      yPosition += 10;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Dr. ${prescription.doctor.name}`, pageWidth - 80, yPosition);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Generated on: ${formatDate(new Date().toISOString())}`,
+        margin,
+        pageHeight - 15
+      );
+      doc.text(
+        "Confidential Medical Document",
+        pageWidth - margin,
+        pageHeight - 15,
+        { align: "right" }
+      );
+
+      const fileName = `Prescription_${
+        prescription.id
+      }_${prescription.patient.name.replace(/\s+/g, "_")}.pdf`;
+      doc.save(fileName);
+      document.head.removeChild(script);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      const textContent = `
+Prescription #${prescription.id}
+
+Patient: ${prescription.patient.name}
+Patient ID: ${prescription.patient.id}
+
+Doctor: ${prescription.doctor.name}
+Issue Date: ${formatDate(prescription.issueDate)}
+Follow-up Date: ${formatDate(prescription.followUpDate)}
+Diagnosis: ${prescription.diagnosis}
+
+Medications:
+${prescription.medicines
+  .map(
+    (med, index) => `
+${index + 1}. ${med.medicine.name}
+   Generic Name: ${med.medicine.genericName}
+   Strength: ${med.medicine.strength}
+   Form: ${med.medicine.form}
+   Duration: ${med.durationDays} days
+   Dosage: ${med.timings
+     .map(
+       (t) =>
+         `${
+           t.amount
+         } ${med.medicine.form.toLowerCase()}, ${t.timeOfDay.toLowerCase()} (${
+           t.specificTime
+         }), ${t.mealRelation.replace("_", " ").toLowerCase()}`
+     )
+     .join("; ")}
+   ${med.specialInstructions ? `Instructions: ${med.specialInstructions}` : ""}
+`
+  )
+  .join("\n")}
+
+${prescription.advice ? `Doctor's Advice: ${prescription.advice}` : ""}
+
+Generated on ${formatDate(new Date().toISOString())}
+    `;
+
+      const blob = new Blob([textContent], { type: "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Prescription_${
+        prescription.id
+      }_${prescription.patient.name.replace(/\s+/g, "_")}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }
   };
-
-  const downloadPrescriptionPDF = (prescription) => {
-    const html = buildPrescriptionHTML(prescription);
-    const win = window.open("", "_blank", "width=900,height=750");
-    if (!win) { alert("Please allow popups to download the prescription."); return; }
-    win.document.write(html);
-    win.document.close();
-    win.onload = () => setTimeout(() => { win.focus(); win.print(); }, 500);
-  };
-
-  const [activeFilter, setActiveFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
 
   const formatTimeOfDay = (timeOfDay) => {
-    const map = { MORNING: "Morning", AFTERNOON: "Afternoon", EVENING: "Evening", NIGHT: "Night", BEDTIME: "Bedtime", FIXED_TIME: "Fixed Time", INTERVAL: "Interval" };
-    return map[timeOfDay] || timeOfDay.replace(/_/g, " ");
+    const timeMap = {
+      MORNING: "🌅 Morning",
+      AFTERNOON: "☀️ Afternoon",
+      EVENING: "🌅 Evening",
+      NIGHT: "🌙 Night",
+    };
+    return timeMap[timeOfDay] || timeOfDay;
   };
 
   const formatMealRelation = (mealRelation) => {
-    const map = { BEFORE_MEAL: "Before Meal", AFTER_MEAL: "After Meal", WITH_MEAL: "With Meal", EMPTY_STOMACH: "Empty Stomach", ANY_TIME: "Any Time" };
-    return map[mealRelation] || mealRelation.replace(/_/g, " ");
+    const mealMap = {
+      BEFORE_MEAL: "🍽️ Before meals",
+      AFTER_MEAL: "🍽️ After meals",
+      WITH_MEAL: "🍽️ With meals",
+      EMPTY_STOMACH: "⭕ Empty stomach",
+    };
+    return (
+      mealMap[mealRelation] || mealRelation.replace("_", " ").toLowerCase()
+    );
   };
 
-  const totalActive = prescriptions.filter(p => getMedicationStatus(p) === "Active").length;
-  const uniquePatients = new Set(prescriptions.map(p => p.patient.id)).size;
-
-  const filteredPrescriptions = prescriptions.filter((prescription) => {
-    const matchesSearch =
-      prescription.patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Filter prescriptions based on search term
+  const filteredPrescriptions = prescriptions.filter(
+    (prescription) =>
+      prescription.patient.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
       prescription.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prescription.id.toString().includes(searchTerm);
-    const status = getMedicationStatus(prescription);
-    const matchesFilter =
-      activeFilter === "ALL" ||
-      (activeFilter === "ACTIVE" && status === "Active") ||
-      (activeFilter === "COMPLETED" && status === "Completed");
-    return matchesSearch && matchesFilter;
-  });
+      prescription.id.toString().includes(searchTerm)
+  );
 
   if (loading) {
     return (
       <MainLayout userType="doctor">
         <div className="flex items-center justify-center min-h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-sky-500 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Loading prescriptions…</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading prescriptions...</p>
           </div>
         </div>
       </MainLayout>
@@ -307,9 +529,8 @@ body{font-family:'Inter',sans-serif;background:#e8edf2;color:#1e293b;font-size:1
       <MainLayout userType="doctor">
         <div className="flex items-center justify-center min-h-64">
           <div className="text-center">
-            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-            <p className="text-red-600 font-medium">Failed to load prescriptions</p>
-            <p className="text-gray-500 text-sm mt-1">{error}</p>
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-red-600">Error loading prescriptions: {error}</p>
           </div>
         </div>
       </MainLayout>
@@ -318,257 +539,339 @@ body{font-family:'Inter',sans-serif;background:#e8edf2;color:#1e293b;font-size:1
 
   return (
     <MainLayout userType="doctor">
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-
-        {/* Page header */}
+      <div className="space-y-8">
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Prescriptions</h1>
-          <p className="text-gray-500 text-sm mt-1">Prescriptions you have issued to patients</p>
+          <h1 className="page-title">My Prescriptions</h1>
+          <p className="text-gray-600">
+            View and manage prescriptions you've written
+          </p>
         </div>
 
-        {/* Stats strip */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5 text-sky-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{prescriptions.length}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Total</p>
-            </div>
-          </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-5 h-5 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{totalActive}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Active</p>
-            </div>
-          </div>
-          <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-              <User className="w-5 h-5 text-indigo-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{uniquePatients}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Patients</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Search + filter tabs */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by patient name, diagnosis, or ID…"
+              placeholder="Search by patient name, diagnosis, or prescription ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 bg-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <div className="flex bg-gray-100 rounded-xl p-1 gap-1 flex-shrink-0">
-            {(["ALL", "ACTIVE", "COMPLETED"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeFilter === f
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {f === "ALL" ? "All" : f === "ACTIVE" ? "Active" : "Completed"}
-              </button>
-            ))}
+          <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <Filter className="w-5 h-5 text-gray-600" />
+            <span>Filter</span>
+          </button>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">
+                  {prescriptions.length}
+                </h3>
+                <p className="text-sm text-gray-600">Total Prescriptions</p>
+              </div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <User className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">
+                  {new Set(prescriptions.map((p) => p.patient.id)).size}
+                </h3>
+                <p className="text-sm text-gray-600">Unique Patients</p>
+              </div>
+            </div>
+          </div>
+          <div className="card">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">
+                  {
+                    prescriptions.filter(
+                      (p) => getMedicationStatus(p) === "Active"
+                    ).length
+                  }
+                </h3>
+                <p className="text-sm text-gray-600">Active Prescriptions</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Prescriptions list */}
-        <div className="space-y-4">
+        {/* Prescriptions List */}
+        <div className="space-y-6">
           {filteredPrescriptions.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-gray-300" />
-              </div>
-              <p className="text-gray-600 font-medium">No prescriptions found</p>
-              <p className="text-gray-400 text-sm mt-1">
-                {searchTerm ? "Try a different search term" : "Prescriptions you issue will appear here"}
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-600">
+                {searchTerm
+                  ? "No prescriptions found matching your search"
+                  : "No prescriptions found"}
               </p>
             </div>
           ) : (
-            filteredPrescriptions.map((prescription, idx) => {
+            filteredPrescriptions.map((prescription) => {
               const isExpanded = expandedPrescriptions.has(prescription.id);
-              const status = getMedicationStatus(prescription);
-              const isActive = status === "Active";
-
               return (
-                <div
-                  key={prescription.id}
-                  className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden"
-                >
-                  {/* Card header */}
+                <div key={prescription.id} className="card">
+                  {/* Prescription Header - Clickable */}
                   <div
-                    className="flex items-start gap-4 p-5 cursor-pointer hover:bg-gray-50/60 transition-colors"
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors rounded-lg"
                     onClick={() => togglePrescriptionExpansion(prescription.id)}
                   >
-                    {/* Rx badge */}
-                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex flex-col items-center justify-center text-white shadow-sm">
-                      <span className="text-xs font-bold italic leading-none">Rx</span>
-                      <span className="text-[9px] opacity-75 mt-0.5">#{String(prescription.id).padStart(3, "0")}</span>
-                    </div>
-
-                    {/* Main info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900 text-base">{prescription.patient.name}</span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          isActive
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-gray-100 text-gray-500 border border-gray-200"
-                        }`}>
-                          {isActive ? "Active" : "Completed"}
-                        </span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
                       </div>
-                      <p className="text-sm text-gray-500 mt-0.5 truncate">
-                        <span className="font-medium text-gray-700">Dx:</span> {prescription.diagnosis}
-                      </p>
-                      <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          Issued {formatDate(prescription.issueDate)}
-                        </span>
-                        {prescription.followUpDate && (
+                      <div>
+                        <h3 className="font-semibold">
+                          Prescription #{prescription.id}
+                        </h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            Follow-up {formatDate(prescription.followUpDate)}
+                            <User className="w-4 h-4" />
+                            Patient: {prescription.patient.name}
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Pill className="w-3.5 h-3.5" />
-                          {prescription.medicines.length} medicine{prescription.medicines.length !== 1 ? "s" : ""}
-                        </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {formatDate(prescription.issueDate)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 mt-1">
+                          <strong>Diagnosis:</strong> {prescription.diagnosis}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        className="flex items-center gap-1.5 px-3 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm"
-                        onClick={(e) => { e.stopPropagation(); downloadPrescriptionPDF(prescription); }}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          getMedicationStatus(prescription) === "Active"
+                            ? "bg-green-100 text-green-800 border border-green-200"
+                            : "bg-gray-100 text-gray-800 border border-gray-200"
+                        }`}
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        PDF
+                        {getMedicationStatus(prescription)}
+                      </span>
+                      <button
+                        className="btn-secondary flex items-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadPrescriptionPDF(prescription);
+                        }}
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download PDF</span>
                       </button>
-                      <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400">
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </div>
+                      {isExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-500" />
+                      )}
                     </div>
                   </div>
 
-                  {/* Expanded details */}
+                  {/* Prescription Details - Collapsible */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 px-5 pb-5 pt-4 space-y-5">
-
-                      {/* Patient info */}
-                      <div className="bg-sky-50 rounded-xl p-4">
-                        <p className="text-xs font-semibold text-sky-600 uppercase tracking-wide mb-3">Patient Information</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {[
-                            { label: "Name", val: prescription.patient.name },
-                            { label: "Gender", val: prescription.patient.gender || "—" },
-                            { label: "Phone", val: prescription.patient.phone || "—" },
-                            { label: "Email", val: prescription.patient.email || "—" },
-                          ].map(({ label, val }) => (
-                            <div key={label}>
-                              <p className="text-xs text-sky-500 font-medium">{label}</p>
-                              <p className="text-sm font-semibold text-sky-900 mt-0.5 truncate">{val}</p>
+                    <div className="px-4 pb-4 space-y-4 border-t border-gray-100">
+                      <div className="pt-4 space-y-4">
+                        {/* Patient Info */}
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <h4 className="font-medium text-blue-800 mb-2">
+                            Patient Information
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                              <span className="text-blue-600 font-medium">
+                                Name:
+                              </span>
+                              <p className="text-blue-800">
+                                {prescription.patient.name}
+                              </p>
                             </div>
-                          ))}
+                            <div>
+                              <span className="text-blue-600 font-medium">
+                                Email:
+                              </span>
+                              <p className="text-blue-800">
+                                {prescription.patient.email}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-blue-600 font-medium">
+                                Phone:
+                              </span>
+                              <p className="text-blue-800">
+                                {prescription.patient.phone}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-blue-600 font-medium">
+                                Gender:
+                              </span>
+                              <p className="text-blue-800">
+                                {prescription.patient.gender}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Medicines */}
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                          <Pill className="w-3.5 h-3.5" />
-                          Prescribed Medicines ({prescription.medicines.length})
-                        </p>
-                        <div className="space-y-3">
-                          {prescription.medicines.map((med, mIdx) => (
-                            <div key={mIdx} className="border border-gray-100 rounded-xl overflow-hidden">
-                              {/* Medicine header */}
-                              <div className="flex items-center gap-3 bg-gray-50 px-4 py-3">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                  {mIdx + 1}
+                        {/* Medicines */}
+                        {prescription.medicines.map((medicineItem, index) => (
+                          <div
+                            key={index}
+                            className="p-5 border border-gray-200 rounded-xl bg-gradient-to-br from-white to-gray-50 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Pill className="w-5 h-5 text-blue-600" />
+                                  <h4 className="font-semibold text-lg text-gray-800">
+                                    {medicineItem.medicine.name}
+                                  </h4>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-gray-900 text-sm">{med.medicine.name}</p>
-                                  <p className="text-xs text-gray-500">{med.medicine.genericName} · {med.medicine.strength} · {med.medicine.form}</p>
-                                </div>
-                                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0">
-                                  {med.durationDays} days
-                                </span>
-                              </div>
+                                <p className="text-gray-600 mb-3 font-medium">
+                                  {medicineItem.medicine.genericName}
+                                </p>
 
-                              {/* Timing table */}
-                              <div className="px-4 py-3">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="text-gray-400 uppercase tracking-wide">
-                                      <th className="text-left pb-2 font-semibold">Time</th>
-                                      <th className="text-left pb-2 font-semibold">Dose</th>
-                                      <th className="text-left pb-2 font-semibold">Meal</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-50">
-                                    {med.timings.map((t, tIdx) => (
-                                      <tr key={tIdx}>
-                                        <td className="py-1.5 text-gray-700 font-medium">
-                                          {formatTimeOfDay(t.timeOfDay)}
-                                          {t.specificTime && <span className="text-gray-400 ml-1">({t.specificTime})</span>}
-                                        </td>
-                                        <td className="py-1.5">
-                                          <span className="bg-sky-50 text-sky-700 font-semibold px-2 py-0.5 rounded-lg">
-                                            {t.amount} {med.medicine.form.toLowerCase()}
+                                {/* Medicine Quick Info */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                  <div className="bg-blue-50 p-2 rounded-lg text-center">
+                                    <p className="text-xs text-blue-600 font-medium">
+                                      Strength
+                                    </p>
+                                    <p className="text-sm font-semibold text-blue-800">
+                                      {medicineItem.medicine.strength}
+                                    </p>
+                                  </div>
+                                  <div className="bg-green-50 p-2 rounded-lg text-center">
+                                    <p className="text-xs text-green-600 font-medium">
+                                      Form
+                                    </p>
+                                    <p className="text-sm font-semibold text-green-800">
+                                      {medicineItem.medicine.form}
+                                    </p>
+                                  </div>
+                                  <div className="bg-purple-50 p-2 rounded-lg text-center">
+                                    <p className="text-xs text-purple-600 font-medium">
+                                      Duration
+                                    </p>
+                                    <p className="text-sm font-semibold text-purple-800">
+                                      {medicineItem.durationDays} days
+                                    </p>
+                                  </div>
+                                  <div className="bg-orange-50 p-2 rounded-lg text-center">
+                                    <p className="text-xs text-orange-600 font-medium">
+                                      Price
+                                    </p>
+                                    <p className="text-sm font-semibold text-orange-800">
+                                      ৳{medicineItem.medicine.price}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Timing Schedule */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Clock className="w-4 h-4 text-indigo-600" />
+                                    <span className="font-medium text-gray-700">
+                                      Dosage Schedule:
+                                    </span>
+                                  </div>
+                                  {medicineItem.timings.map(
+                                    (timing, timingIndex) => (
+                                      <div
+                                        key={timingIndex}
+                                        className="bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-300"
+                                      >
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="font-medium text-indigo-800">
+                                            {formatTimeOfDay(timing.timeOfDay)}{" "}
+                                            - {timing.specificTime}
                                           </span>
-                                        </td>
-                                        <td className="py-1.5 text-gray-600">{formatMealRelation(t.mealRelation)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                                {med.specialInstructions && (
-                                  <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                                    <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                                    <p className="text-xs text-amber-700">{med.specialInstructions}</p>
+                                          <span className="bg-indigo-200 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">
+                                            {timing.amount}{" "}
+                                            {medicineItem.medicine.form.toLowerCase()}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm text-indigo-700">
+                                          {formatMealRelation(
+                                            timing.mealRelation
+                                          )}
+                                        </p>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+
+                                {/* Special Instructions */}
+                                {medicineItem.specialInstructions && (
+                                  <div className="mt-3 p-3 bg-amber-50 border-l-4 border-amber-300 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                                      <span className="font-medium text-amber-800">
+                                        Special Instructions:
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-amber-700">
+                                      {medicineItem.specialInstructions}
+                                    </p>
                                   </div>
                                 )}
+
+                                {/* Manufacturer Info */}
+                                <div className="mt-3 text-xs text-gray-500">
+                                  <p>
+                                    <strong>Manufacturer:</strong>{" "}
+                                    {medicineItem.medicine.manufacturer}
+                                  </p>
+                                  <p>
+                                    <strong>Category:</strong>{" "}
+                                    {medicineItem.medicine.category}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          </div>
+                        ))}
 
-                      {/* Advice */}
-                      {prescription.advice && (
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                          <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1.5">Doctor's Advice</p>
-                          <p className="text-sm text-emerald-800 leading-relaxed">{prescription.advice}</p>
-                        </div>
-                      )}
+                        {prescription.advice && (
+                          <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded-lg">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-medium text-yellow-800">
+                                Doctor's Advice:
+                              </p>
+                              <p className="text-sm text-yellow-700">
+                                {prescription.advice}
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
-                      {/* Download again */}
-                      <div className="flex justify-end pt-1">
-                        <button
-                          className="flex items-center gap-2 px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
-                          onClick={() => downloadPrescriptionPDF(prescription)}
-                        >
-                          <Download className="w-4 h-4" />
-                          Download Prescription PDF
-                        </button>
+                        {prescription.followUpDate && (
+                          <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                            <Calendar className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-blue-800">
+                              <strong>Follow-up Date:</strong>{" "}
+                              {formatDate(prescription.followUpDate)}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
