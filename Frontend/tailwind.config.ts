@@ -99,7 +99,7 @@ const config = {
 			},
 			fontFamily: {
 				sans: ['Inter', ...fontFamily.sans],
-				heading: ['Poppins', ...fontFamily.sans],
+				heading: ['Inter', ...fontFamily.sans],
 			}
 		}
 	},

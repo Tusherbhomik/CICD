@@ -163,9 +163,15 @@ public class AppointmentController {
     @PostMapping("/{appointmentId}/cancel")
     public ResponseEntity<Map<String, Object>> cancelAppointment(
             @PathVariable Long appointmentId,
-            @RequestParam Long patientId) {
+            HttpServletRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
+            Long patientId = (Long) request.getAttribute("userId");
+            if (patientId == null) {
+                response.put("success", false);
+                response.put("message", "Unauthorized");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
             boolean cancelled = appointmentService.cancelAppointmentByPatient(appointmentId, patientId);
             if (cancelled) {
                 response.put("success", true);
@@ -255,9 +261,15 @@ public class AppointmentController {
     @PostMapping("/{appointmentId}/reject")
     public ResponseEntity<Map<String, Object>> rejectAppointment(
             @PathVariable Long appointmentId,
-            @RequestParam Long doctorId) {
+            HttpServletRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
+            Long doctorId = (Long) request.getAttribute("userId");
+            if (doctorId == null) {
+                response.put("success", false);
+                response.put("message", "Unauthorized");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
             boolean rejected = appointmentService.rejectAppointment(appointmentId, doctorId);
             if (rejected) {
                 response.put("success", true);
@@ -351,10 +363,16 @@ public class AppointmentController {
     @PostMapping("/{appointmentId}/complete")
     public ResponseEntity<Map<String, Object>> completeAppointment(
             @PathVariable Long appointmentId,
-            @RequestParam Long doctorId,
-            @RequestParam(required = false) String notes) {
+            @RequestParam(required = false) String notes,
+            HttpServletRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
+            Long doctorId = (Long) request.getAttribute("userId");
+            if (doctorId == null) {
+                response.put("success", false);
+                response.put("message", "Unauthorized");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
             boolean completed = appointmentService.completeAppointment(appointmentId, doctorId, notes);
             if (completed) {
                 response.put("success", true);

@@ -1,7 +1,9 @@
 import MainLayout from "@/components/layout/MainLayout";
-import { cn } from "@/lib/utils";
-import { API_BASE_URL } from '@/url';
-import { Mail, Phone, Camera, Trash2, Upload, Edit, MapPin, Calendar, Award, User, Briefcase, Clock, Star } from "lucide-react";
+import { API_BASE_URL } from "@/url";
+import {
+  Mail, Phone, Camera, Trash2, Upload, Edit,
+  MapPin, Calendar, Award, User, Briefcase, Stethoscope,
+} from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 
@@ -22,7 +24,7 @@ interface DoctorProfileData {
 }
 
 const DoctorProfile = () => {
-  const [image, setImage] = useState('');
+  const [image, setImage] = useState("");
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [showImageActions, setShowImageActions] = useState(false);
   const [doctorInfo, setDoctorInfo] = useState<DoctorProfileData | null>(null);
@@ -32,20 +34,11 @@ const DoctorProfile = () => {
   const fetchDoctorProfile = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/doctors/profile`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch doctor profile");
-      }
+      const response = await fetch(`${API_BASE_URL}/api/doctors/profile`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch doctor profile");
       const data = await response.json();
       setDoctorInfo(data);
-      console.log(data);
-      
-      if (data.profileImage) {
-        setImage(data.profileImage);
-      }
+      if (data.profileImage) setImage(data.profileImage);
     } catch (err) {
       console.error("Error fetching doctor profile:", err);
     } finally {
@@ -54,24 +47,13 @@ const DoctorProfile = () => {
   };
 
   const handleImageUpload = async (file: File) => {
-    if (!file) return;
-    
     setIsImageLoading(true);
     const formData = new FormData();
-    formData.append('file', file);
-
+    formData.append("file", file);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/upload`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to upload image");
-      }
-      
-      const data = await response.json();
+      const res = await fetch(`${API_BASE_URL}/api/users/profile/image/upload`, { method: "POST", credentials: "include", body: formData });
+      if (!res.ok) throw new Error("Failed to upload image");
+      const data = await res.json();
       setImage(data.imageUrl);
       setShowImageActions(false);
     } catch (err) {
@@ -82,24 +64,13 @@ const DoctorProfile = () => {
   };
 
   const handleImageUpdate = async (file: File) => {
-    if (!file) return;
-    
     setIsImageLoading(true);
     const formData = new FormData();
-    formData.append('file', file);
-
+    formData.append("file", file);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/image/update`, {
-        method: "PUT",
-        credentials: "include",
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to update image");
-      }
-      
-      const data = await response.json();
+      const res = await fetch(`${API_BASE_URL}/api/users/profile/image/update`, { method: "PUT", credentials: "include", body: formData });
+      if (!res.ok) throw new Error("Failed to update image");
+      const data = await res.json();
       setImage(data.imageUrl);
       setShowImageActions(false);
     } catch (err) {
@@ -110,22 +81,11 @@ const DoctorProfile = () => {
   };
 
   const handleImageDelete = async () => {
-    if (!confirm("Are you sure you want to remove your profile picture?")) {
-      return;
-    }
-
     setIsImageLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/profile/image`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to delete image");
-      }
-      
-      setImage('');
+      const res = await fetch(`${API_BASE_URL}/api/users/profile/image`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Failed to delete image");
+      setImage("");
       setShowImageActions(false);
     } catch (err) {
       console.error("Error deleting image:", err);
@@ -134,349 +94,234 @@ const DoctorProfile = () => {
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (image) {
-        handleImageUpdate(file);
-      } else {
-        handleImageUpload(file);
-      }
-    }
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) image ? handleImageUpdate(file) : handleImageUpload(file);
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
+  useEffect(() => { fetchDoctorProfile(); }, []);
 
-  useEffect(() => {
-    fetchDoctorProfile();
-  }, []);
+  const calcAge = (birthDate?: string) => {
+    if (!birthDate) return null;
+    return Math.floor((Date.now() - new Date(birthDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+  };
 
   if (isLoading) {
     return (
       <MainLayout userType="doctor">
-        <div className="flex items-center justify-center h-96">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600 animate-pulse">Loading your profile...</p>
+        <div className="flex items-center justify-center h-80">
+          <div className="text-center">
+            <div className="w-10 h-10 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Loading profile…</p>
           </div>
         </div>
       </MainLayout>
     );
   }
 
+  const age = calcAge(doctorInfo?.birthDate);
+  const initial = doctorInfo?.name?.charAt(0)?.toUpperCase() || "D";
+
   return (
     <MainLayout userType="doctor">
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <div className="max-w-6xl mx-auto space-y-8 p-6">
-          {/* Enhanced Header with Gradient Background */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl">
-            <div className="absolute inset-0 bg-black/10"></div>
-            <div className="relative flex items-center justify-between">
-              <div className="space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight">Doctor Profile</h1>
-                <p className="text-blue-100 text-lg">Manage your professional information with ease</p>
-              </div>
-              
-              <Link
-                to="/doctor/profile/edit"
-                className="group relative overflow-hidden rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 px-6 py-3 text-white transition-all duration-300 hover:bg-white/30 hover:scale-105 hover:shadow-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <Edit className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                  <span className="font-medium">Edit Profile</span>
+      <div className="flex-1 px-6 py-6 bg-slate-50">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+            {/* ── Left column ── */}
+            <div className="lg:col-span-1 space-y-4">
+
+              {/* Avatar card */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {/* Cover */}
+                <div className="h-24 bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-500 relative">
+                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 70% 50%, white 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+                  <Link
+                    to="/doctor/profile/edit"
+                    className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 rounded-xl text-white text-xs font-semibold transition-colors"
+                  >
+                    <Edit className="w-3 h-3" />
+                    Edit
+                  </Link>
                 </div>
-              </Link>
-            </div>
-            
-            {/* Decorative Elements */}
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
-          </div>
 
-          {/* Enhanced Profile Overview */}
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-            {/* Profile Header Section */}
-            <div className="relative bg-gradient-to-r from-gray-50 to-blue-50 p-8 border-b border-gray-100">
-              <div className="flex flex-col lg:flex-row gap-8 items-start">
-                {/* Enhanced Profile Image Section */}
-                <div className="relative group">
-                  <div className="relative">
-                    <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center overflow-hidden shadow-2xl ring-4 ring-white transition-all duration-300 group-hover:scale-105">
-                      {isImageLoading ? (
-                        <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : image ? (
-                        <img 
-                          src={image} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-4xl text-white font-bold">
-                          {doctorInfo?.name?.charAt(0) || 'D'}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Enhanced Image Actions Button */}
-                    <button
-                      onClick={() => setShowImageActions(!showImageActions)}
-                      className="absolute -bottom-2 -right-2 w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full flex items-center justify-center hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:scale-110 hover:shadow-xl group"
-                      disabled={isImageLoading}
-                    >
-                      <Camera className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                    </button>
-
-                    {/* Enhanced Image Actions Dropdown */}
-                    {showImageActions && (
-                      <div className="absolute top-full right-0 mt-4 bg-white border border-gray-200 rounded-2xl shadow-2xl py-2 min-w-52 z-10 backdrop-blur-sm">
-                        <button
-                          onClick={triggerFileInput}
-                          className="w-full px-6 py-3 text-left text-sm hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 flex items-center gap-3 transition-all duration-200 text-gray-700 hover:text-blue-600"
-                        >
-                          <Upload className="w-4 h-4" />
-                          <span className="font-medium">{image ? 'Update Photo' : 'Upload Photo'}</span>
-                        </button>
-                        {image && (
-                          <button
-                            onClick={handleImageDelete}
-                            className="w-full px-6 py-3 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-3 transition-all duration-200"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span className="font-medium">Remove Photo</span>
-                          </button>
+                {/* Avatar */}
+                <div className="px-5 pb-5">
+                  <div className="flex justify-center -mt-9 mb-4">
+                    <div className="relative">
+                      <div className="w-18 h-18 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center"
+                           style={{ width: 72, height: 72 }}>
+                        {isImageLoading ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : image ? (
+                          <img src={image} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl text-white font-bold">{initial}</span>
                         )}
                       </div>
+                      <button
+                        onClick={() => setShowImageActions(!showImageActions)}
+                        disabled={isImageLoading}
+                        className="absolute -bottom-1 -right-1 w-6 h-6 bg-sky-500 hover:bg-sky-600 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                      >
+                        <Camera className="w-3 h-3" />
+                      </button>
+                      {showImageActions && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 w-44 z-20">
+                          <button onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5">
+                            <Upload className="w-4 h-4 text-gray-400" />
+                            {image ? "Update Photo" : "Upload Photo"}
+                          </button>
+                          {image && (
+                            <button onClick={handleImageDelete} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5">
+                              <Trash2 className="w-4 h-4" />
+                              Remove Photo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <h1 className="text-lg font-bold text-gray-900">Dr. {doctorInfo?.name || "Unknown"}</h1>
+                    <p className="text-sm text-gray-500 mt-0.5">{doctorInfo?.specialization || "General Physician"}</p>
+                  </div>
+
+                  {/* Badges */}
+                  <div className="flex flex-wrap justify-center gap-1.5 mt-4">
+                    {doctorInfo?.licenseNumber && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 text-sky-700 text-xs font-semibold rounded-full border border-sky-100">
+                        <Award className="w-3 h-3" />{doctorInfo.licenseNumber}
+                      </span>
+                    )}
+                    {doctorInfo?.gender && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 text-gray-600 text-xs font-semibold rounded-full border border-gray-100">
+                        <User className="w-3 h-3" />{doctorInfo.gender}
+                      </span>
                     )}
                   </div>
-                  
-                  {/* Status Indicator */}
-                  <div className="absolute -top-1 -left-1 w-6 h-6 bg-green-400 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-                    <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
-                  </div>
                 </div>
+              </div>
 
-                {/* Enhanced Profile Info */}
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">{doctorInfo?.name || 'Doctor'}</h2>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
-                        <Briefcase className="w-4 h-4 mr-2" />
-                        {doctorInfo?.specialization || 'General Practice'}
-                      </span>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 font-medium">
-                        <Award className="w-4 h-4 mr-2" />
-                        License: {doctorInfo?.licenseNumber || 'N/A'}
-                      </span>
+              {/* Quick stats */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Quick Info</p>
+                {[
+                  { icon: <Stethoscope className="w-4 h-4" />, label: "Role", value: "Doctor" },
+                  { icon: <Briefcase className="w-4 h-4" />, label: "Institute", value: doctorInfo?.institute },
+                  {
+                    icon: <Calendar className="w-4 h-4" />,
+                    label: "Member Since",
+                    value: doctorInfo?.createdAt
+                      ? new Date(doctorInfo.createdAt).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+                      : null,
+                  },
+                ].map(({ icon, label, value }) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-400">
+                      {icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 font-medium">{label}</p>
+                      <p className="text-sm font-semibold text-gray-800 truncate">{value || "—"}</p>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-500">Experience</p>
-                          <p className="text-lg font-semibold text-gray-900">5+ Years</p>
-                        </div>
-                        <Star className="w-8 h-8 text-yellow-400" />
+            {/* ── Right column ── */}
+            <div className="lg:col-span-2 space-y-4">
+
+              {/* Contact */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Contact Information</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { icon: <Mail className="w-4 h-4" />, label: "Email Address", value: doctorInfo?.email, accent: "text-sky-400 bg-sky-50 border-sky-100" },
+                    { icon: <Phone className="w-4 h-4" />, label: "Phone Number", value: doctorInfo?.phone, accent: "text-indigo-400 bg-indigo-50 border-indigo-100" },
+                    { icon: <MapPin className="w-4 h-4" />, label: "Institute", value: doctorInfo?.institute, accent: "text-violet-400 bg-violet-50 border-violet-100" },
+                    { icon: <Award className="w-4 h-4" />, label: "License No.", value: doctorInfo?.licenseNumber, accent: "text-emerald-400 bg-emerald-50 border-emerald-100" },
+                  ].map(({ icon, label, value, accent }) => (
+                    <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/60">
+                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${accent}`}>
+                        {icon}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-400 font-medium">{label}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{value || "—"}</p>
                       </div>
                     </div>
-                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-500">Patients</p>
-                          <p className="text-lg font-semibold text-gray-900">500+</p>
-                        </div>
-                        <User className="w-8 h-8 text-blue-500" />
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-500">Rating</p>
-                          <p className="text-lg font-semibold text-gray-900">4.9/5</p>
-                        </div>
-                        <div className="flex text-yellow-400">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-current" />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </div>
 
-            {/* Enhanced Contact Information */}
-            <div className="p-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Mail className="w-5 h-5 text-blue-500" />
-                Contact Information
-              </h3>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Mail className="w-5 h-5 text-blue-600" />
+              {/* Personal */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Personal Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    { label: "Gender", value: doctorInfo?.gender, color: "bg-sky-50 border-sky-100 text-sky-800" },
+                    {
+                      label: "Date of Birth",
+                      value: doctorInfo?.birthDate
+                        ? new Date(doctorInfo.birthDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                        : null,
+                      color: "bg-indigo-50 border-indigo-100 text-indigo-800",
+                    },
+                    {
+                      label: "Age",
+                      value: age != null ? `${age} years` : null,
+                      color: "bg-violet-50 border-violet-100 text-violet-800",
+                    },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className={`rounded-xl border p-4 ${color}`}>
+                      <p className="text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">{label}</p>
+                      <p className="text-sm font-bold">{value || "—"}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium text-gray-900">{doctorInfo?.email || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Phone className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Phone</p>
-                      <p className="font-medium text-gray-900">{doctorInfo?.phone || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Institute</p>
-                      <p className="font-medium text-gray-900">{doctorInfo?.institute || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
-                    <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-5 h-5 text-pink-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Birth Date</p>
-                      <p className="font-medium text-gray-900">{doctorInfo?.birthDate ? new Date(doctorInfo.birthDate).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <User className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Gender</p>
-                      <p className="font-medium text-gray-900">{doctorInfo?.gender || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl transition-all duration-200 hover:bg-gray-100">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Age</p>
-                      <p className="font-medium text-gray-900">{doctorInfo?.birthDate ? new Date().getFullYear() - new Date(doctorInfo.birthDate).getFullYear() : 'N/A'}</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Enhanced Sections Grid */}
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Enhanced Bio Section */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-500" />
-                Professional Bio
-              </h3>
-              <div className="prose prose-gray">
-                <p className="text-gray-600 leading-relaxed">
-                  {doctorInfo?.name ? `Dr. ${doctorInfo.name} is a dedicated ${doctorInfo.specialization} specialist with extensive experience at ${doctorInfo.institute}. Committed to providing exceptional patient care and staying current with the latest medical advances.` : 'Professional bio will be displayed here once profile information is complete.'}
-                </p>
+              {/* Professional */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Professional Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    { label: "Specialization", value: doctorInfo?.specialization, color: "bg-sky-50 border-sky-100 text-sky-800" },
+                    { label: "License Number", value: doctorInfo?.licenseNumber, color: "bg-indigo-50 border-indigo-100 text-indigo-800" },
+                    { label: "Institute", value: doctorInfo?.institute, color: "bg-emerald-50 border-emerald-100 text-emerald-800" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className={`rounded-xl border p-4 ${color}`}>
+                      <p className="text-xs font-semibold opacity-60 uppercase tracking-wide mb-1">{label}</p>
+                      <p className="text-sm font-bold">{value || "—"}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Enhanced Certifications Section */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Award className="w-5 h-5 text-green-500" />
-                Certifications
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 p-4 bg-green-50 rounded-xl">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Award className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Medical License</h4>
-                    <p className="text-sm text-gray-600">License Number: {doctorInfo?.licenseNumber || 'N/A'}</p>
-                  </div>
+              {/* Edit CTA */}
+              <div className="bg-gradient-to-r from-sky-50 to-indigo-50 rounded-2xl border border-sky-100 p-5 flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-gray-800 text-sm">Keep your profile up to date</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Patients and colleagues see this information</p>
                 </div>
-                <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-xl">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Briefcase className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Specialization Certificate</h4>
-                    <p className="text-sm text-gray-600">Certified in {doctorInfo?.specialization || 'General Practice'} since 2020</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced Availability Section */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-all duration-300">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-purple-500" />
-              Availability Schedule
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Weekdays</h4>
-                    <p className="text-gray-600">Monday - Friday</p>
-                    <p className="text-sm text-blue-600 font-medium">9:00 AM - 5:00 PM</p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Weekends</h4>
-                    <p className="text-gray-600">Saturday - Sunday</p>
-                    <p className="text-sm text-purple-600 font-medium">By appointment only</p>
-                  </div>
-                </div>
+                <Link
+                  to="/doctor/profile/edit"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex-shrink-0"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Edit Profile
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Hidden File Input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      {/* Click outside to close dropdown */}
-      {showImageActions && (
-        <div
-          className="fixed inset-0 z-5"
-          onClick={() => setShowImageActions(false)}
-        />
-      )}
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+      {showImageActions && <div className="fixed inset-0 z-10" onClick={() => setShowImageActions(false)} />}
     </MainLayout>
   );
 };

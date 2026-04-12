@@ -129,18 +129,11 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Firebase Admin SDK -->
+		<!-- Cloudflare R2 / AWS S3-compatible storage -->
 		<dependency>
-			<groupId>com.google.firebase</groupId>
-			<artifactId>firebase-admin</artifactId>
-			<version>9.2.0</version>
-		</dependency>
-
-		<!-- Google Cloud Storage -->
-		<dependency>
-			<groupId>com.google.cloud</groupId>
-			<artifactId>google-cloud-storage</artifactId>
-			<version>2.28.0</version>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<version>2.25.11</version>
 		</dependency>
 
 		<!-- Apache Commons IO for file operations -->

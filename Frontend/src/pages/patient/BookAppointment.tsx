@@ -1,15 +1,13 @@
 import MainLayout from "@/components/layout/MainLayout";
 import { API_BASE_URL } from "@/url";
 import {
-  Award,
   Calendar,
   CheckCircle,
   Clock,
-  MapPin,
   Search,
-  Star,
   User,
   X,
+  Stethoscope,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -28,14 +26,14 @@ const BookAppointment = ({ patientId = 1 }) => {
   const [selectedTime, setSelectedTime] = useState("");
   const [appointmentType, setAppointmentType] = useState("");
   const [reasonForVisit, setReasonForVisit] = useState("");
-  const [patientName, setPatientName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [timeSlots, setTimeSlots] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
-  const [schedules, setSchedules] = useState([]); // Store raw schedule data
+  const [schedules, setSchedules] = useState([]);
   const [doctorHospitals, setDoctorHospitals] = useState([]);
   const [bookedSlots, setBookedSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   const specialties = [
     "All Specialties",
@@ -49,8 +47,8 @@ const BookAppointment = ({ patientId = 1 }) => {
 
   const appointmentTypes = [
     { value: "IN_PERSON", label: "In Person" },
-    { value: "VIDEO", label: "Video Call" },
-    { value: "PHONE", label: "Phone Call" },
+    { value: "VIDEO",     label: "Video Call" },
+    { value: "PHONE",     label: "Phone Call" },
   ];
 
   const handleCloseModal = () => {
@@ -61,7 +59,6 @@ const BookAppointment = ({ patientId = 1 }) => {
     setSelectedTime("");
     setAppointmentType("");
     setReasonForVisit("");
-    setPatientName("");
     setBookingSuccess(false);
     setTimeSlots([]);
     setAvailableDates([]);
@@ -70,47 +67,30 @@ const BookAppointment = ({ patientId = 1 }) => {
   };
 
   useEffect(() => {
-    const fetchDoctorsAndHospitals = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const [doctorsResponse, hospitalsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/doctors`, {
-            method: "GET",
-            credentials: "include",
-          }),
-          fetch(`${API_BASE_URL}/api/hospitals`, {
-            method: "GET",
-            credentials: "include",
-          }),
+        const [doctorsRes, hospitalsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/doctors`,   { method: "GET", credentials: "include" }),
+          fetch(`${API_BASE_URL}/api/hospitals`, { method: "GET", credentials: "include" }),
         ]);
+        if (!doctorsRes.ok)   throw new Error("Failed to fetch doctors");
+        if (!hospitalsRes.ok) throw new Error("Failed to fetch hospitals");
 
-        if (!doctorsResponse.ok) throw new Error("Failed to fetch doctors");
-        if (!hospitalsResponse.ok) throw new Error("Failed to fetch hospitals");
+        const doctorsData   = await doctorsRes.json();
+        const hospitalsData = await hospitalsRes.json();
 
-        const doctorsData = await doctorsResponse.json();
-        console.log(doctorsData);
-        const hospitalsData = await hospitalsResponse.json();
-        console.log(hospitalsData);
-
-        const transformedDoctors = doctorsData.map((doctor) => ({
+        const transformed = doctorsData.map((doctor) => ({
           ...doctor,
-          specialization: doctor.role || "General",
-          experience: "5+ years",
-          availability: "Mon-Fri, 9:00 AM - 5:00 PM",
-          rating: 4.5,
-          reviews: 50,
-          location: "Hospital Complex",
-          qualifications: ["MD", "Board Certified"],
-          consultationFee: 150,
-          image: "/api/placeholder/120/120",
+          specialization: doctor.specialization || doctor.role || "General",
           hospitals: hospitalsData.filter(
             (h) => doctor.hospitalIds?.includes(h.id) || []
           ),
         }));
 
-        setDoctors(transformedDoctors);
+        setDoctors(transformed);
         setHospitals(hospitalsData);
-        setFilteredDoctors(transformedDoctors);
+        setFilteredDoctors(transformed);
       } catch (err) {
         setError(err.message);
         setDoctors([]);
@@ -120,16 +100,12 @@ const BookAppointment = ({ patientId = 1 }) => {
         setLoading(false);
       }
     };
-
-    fetchDoctorsAndHospitals();
+    fetchData();
   }, []);
 
-  // New useEffect to handle hospital selection and update available dates
+  // Update available dates when hospital selection changes inside modal
   useEffect(() => {
     if (selectedHospital && schedules.length > 0) {
-      console.log("Hospital selected:", selectedHospital);
-      console.log("Available schedules:", schedules);
-
       const availableDays = [
         ...new Set(
           schedules
@@ -137,13 +113,7 @@ const BookAppointment = ({ patientId = 1 }) => {
             .map((s) => s.dayOfWeek)
         ),
       ];
-
-      console.log("Available days for hospital:", availableDays);
-      const dates = generateAvailableDates(availableDays);
-      console.log(dates);
-      setAvailableDates(dates);
-
-      // Reset selected date and time when hospital changes
+      setAvailableDates(generateAvailableDates(availableDays));
       setSelectedDate("");
       setSelectedTime("");
       setTimeSlots([]);
@@ -155,218 +125,110 @@ const BookAppointment = ({ patientId = 1 }) => {
     }
   }, [selectedHospital, schedules]);
 
-  const fuzzySearch = (items, searchTerm) => {
-    if (!searchTerm.trim()) return items;
-    const term = searchTerm.toLowerCase();
-    return items.filter((doctor) => {
-      const name = doctor.name.toLowerCase();
-      const email = doctor.email ? doctor.email.toLowerCase() : "";
-      const specialization = doctor.specialization.toLowerCase();
-      return (
-        name.includes(term) ||
-        email.includes(term) ||
-        specialization.includes(term)
-      );
-    });
-  };
-
+  // Filter doctors by search/specialty/hospital
   useEffect(() => {
     let filtered = doctors;
-
     if (searchTerm) {
-      filtered = fuzzySearch(filtered, searchTerm);
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((d) =>
+        d.name.toLowerCase().includes(term) ||
+        (d.email || "").toLowerCase().includes(term) ||
+        d.specialization.toLowerCase().includes(term)
+      );
     }
-
     if (selectedSpecialty && selectedSpecialty !== "All Specialties") {
       filtered = filtered.filter(
-        (doctor) =>
-          doctor.specialization.toLowerCase() ===
-          selectedSpecialty.toLowerCase()
+        (d) => d.specialization.toLowerCase() === selectedSpecialty.toLowerCase()
       );
     }
-
-    if (selectedHospital) {
-      filtered = filtered.filter((doctor) =>
-        doctor.hospitals.some((h) => h.id === parseInt(selectedHospital))
-      );
-    }
-
     setFilteredDoctors(filtered);
-  }, [searchTerm, selectedSpecialty, selectedHospital, doctors]);
+  }, [searchTerm, selectedSpecialty, doctors]);
 
-  const handleBookAppointment = async (doctor) => {
-    try {
-      console.log("Booking appointment for doctor:", doctor);
-      setSelectedDoctor(doctor);
-      setIsModalOpen(true);
-      setBookingSuccess(false);
-
-      // Reset all selections
-      setSelectedHospital("");
-      setSelectedDate("");
-      setSelectedTime("");
-      setTimeSlots([]);
-      setAvailableDates([]);
-      setSchedules([]);
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/schedules?doctorId=${doctor.id}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch schedules");
-      }
-
-      const scheduleData = await response.json();
-      console.log("Schedule data received:", scheduleData);
-      setSchedules(scheduleData);
-
-      const uniqueHospitalIds = [
-        ...new Set(scheduleData.map((item) => item.hospitalId)),
-      ];
-      const filteredHospitals = hospitals.filter((h) =>
-        uniqueHospitalIds.includes(h.id)
-      );
-      setDoctorHospitals(filteredHospitals);
-
-      console.log("Doctor hospitals set:", filteredHospitals);
-    } catch (error) {
-      console.error("Error booking appointment:", error);
-      alert(`Error: ${error.message}`);
-    }
-  };
-
-  // const generateAvailableDates = (availableDays) => {
-  //   const dates = [];
-  //   const today = new Date("2025-07-29T04:42:00+06:00"); // Current date and time
-  //   const oneMonthLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-  //   for (
-  //     let d = new Date(today);
-  //     d <= oneMonthLater;
-  //     d.setDate(d.getDate() + 1)
-  //   ) {
-  //     const dayName = d
-  //       .toLocaleDateString("en-US", { weekday: "long" })
-  //       .toUpperCase();
-  //     if (availableDays.includes(dayName)) {
-  //       console.log(dayName);
-  //       dates.push(d.toISOString().split("T")[0]);
-  //     }
-  //   }
-  //   return dates;
-  // };
-
-  const generateAvailableDates = (availableDays) => {
-    const dates = [];
-    const today = new Date("2025-07-29T04:42:00+06:00");
-    const oneMonthLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-
+  const generateAvailableDates = (availableDays: string[]) => {
+    const dates: string[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     for (let i = 0; i <= 30; i++) {
-      const d = new Date(today); // fresh copy
+      const d = new Date(today);
       d.setDate(today.getDate() + i);
-
-      // Use UTC so the day name doesn't shift due to local timezones
       const dayName = d
-        .toLocaleDateString("en-US", {
-          weekday: "long",
-          timeZone: "UTC",
-        })
+        .toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" })
         .toUpperCase();
-
       if (availableDays.includes(dayName)) {
-        // Output date in YYYY-MM-DD format
         dates.push(d.toISOString().split("T")[0]);
       }
     }
-
     return dates;
   };
 
-  // Fetch available timeslots
-  const handleFetchTimeslots = async (selectedDate) => {
-    setLoading(true);
-    setError("");
-    console.log("Hello world")
-    console.log(selectedDate);
-    console.log(selectedHospital);
-    console.log(selectedDoctor);
-    let vardata=null;
+  const handleBookAppointment = async (doctor) => {
+    setSelectedDoctor(doctor);
+    setIsModalOpen(true);
+    setBookingSuccess(false);
+    setSelectedHospital("");
+    setSelectedDate("");
+    setSelectedTime("");
+    setTimeSlots([]);
+    setAvailableDates([]);
+    setSchedules([]);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/appointments/timeslots?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital}&date=${selectedDate}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-        }
+      const res = await fetch(
+        `${API_BASE_URL}/api/schedules?doctorId=${doctor.id}`,
+        { method: "GET", credentials: "include" }
       );
+      if (!res.ok) throw new Error("Failed to fetch schedules");
+      const scheduleData = await res.json();
+      setSchedules(scheduleData);
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch timeslots");
-      }
-
-      const data = await response.json();
-      setBookedSlots(data);
-      console.log("Hello");
-      console.log(data);
-      vardata = data;
+      const uniqueHospitalIds = [...new Set(scheduleData.map((s) => s.hospitalId))];
+      setDoctorHospitals(hospitals.filter((h) => uniqueHospitalIds.includes(h.id)));
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching schedules:", err);
     }
-    return vardata;
   };
 
-  const handleDateSelection = async (selectedDate) => {
-    const bannedSlots = await handleFetchTimeslots(selectedDate);
-    
-    setSelectedDate(selectedDate);
+  const handleFetchTimeslots = async (date: string) => {
+    setSlotsLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/appointments/timeslots?doctorId=${selectedDoctor.id}&hospitalId=${selectedHospital}&date=${date}`,
+        { method: "GET", headers: { "Content-Type": "application/json" }, credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Failed to fetch timeslots");
+      const data = await res.json();
+      setBookedSlots(data);
+      return data;
+    } catch (err) {
+      console.error("Error fetching timeslots:", err);
+      return [];
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const handleDateSelection = async (date: string) => {
+    const bannedSlots = await handleFetchTimeslots(date);
+    setSelectedDate(date);
     setSelectedTime("");
 
-    if (selectedDate && schedules.length > 0 && selectedHospital) {
+    if (date && schedules.length > 0 && selectedHospital) {
+      const dayName = new Date(date)
+        .toLocaleDateString("en-US", { weekday: "long" })
+        .toUpperCase();
+
       const schedule = schedules.find(
         (s) =>
           s.hospitalId === parseInt(selectedHospital) &&
-          s.dayOfWeek.toUpperCase() ===
-            new Date(selectedDate)
-              .toLocaleDateString("en-US", { weekday: "long" })
-              .toUpperCase()
+          s.dayOfWeek.toUpperCase() === dayName
       );
 
       if (schedule) {
-        const slots1 = schedule.timeSlots.split(",").map((slot) => {
-          const [start, end] = slot.split("-");
-          return {
-            display: `${start} - ${end}`,
-            value: `${start} - ${end}`,
-            slotId: `${schedule.id}_${start}`,
-          };
+        const allSlots = schedule.timeSlots.split(",").map((slot) => {
+          const [start, end] = slot.trim().split("-");
+          return { display: `${start} - ${end}`, value: `${start} - ${end}` };
         });
-        const slots = slots1.filter(
-            timeslot => !bannedSlots.includes(timeslot.value)
-        );
-        console.log("Goku");
-        console.log(slots);
-
-        // Filter out past slots for today
-        const selectedDateObj = new Date(selectedDate);
-        if (
-          selectedDateObj.toDateString() ===
-            new Date("2025-07-29").toDateString() &&
-          new Date("2025-07-29T04:42:00+06:00") > new Date()
-        ) {
-          const currentTime = "04:42";
-          setTimeSlots(slots.filter((slot) => slot.value >= currentTime));
-        } else {
-          setTimeSlots(slots);
-        }
+        setTimeSlots(allSlots.filter((s) => !bannedSlots.includes(s.value)));
       } else {
         setTimeSlots([]);
       }
@@ -377,22 +239,9 @@ const BookAppointment = ({ patientId = 1 }) => {
 
   const handleSubmitBooking = async () => {
     setIsSubmitting(true);
-
     try {
-      const selectedSlotData = timeSlots.find(
-        (slot) => slot.value === selectedTime
-      );
-
-      if (!selectedSlotData) throw new Error("Please select a valid time slot");
-
-      console.log("yes");
-      console.log(selectedTime);
-      console.log(selectedDate);
-      console.log(selectedSlotData);
-      console.log("nop");
-
       const appointmentData = {
-        patientId: patientId,
+        patientId,
         doctorId: selectedDoctor.id,
         hospitalId: parseInt(selectedHospital),
         appointmentDate: selectedDate,
@@ -401,444 +250,326 @@ const BookAppointment = ({ patientId = 1 }) => {
         reason: reasonForVisit,
         dateandtime: selectedTime,
       };
-      console.log(appointmentData);
 
-      const response = await fetch(`${API_BASE_URL}/api/appointments/request`, {
+      const res = await fetch(`${API_BASE_URL}/api/appointments/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(appointmentData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to book appointment");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to book appointment");
       }
-      console.log(response);
 
       setBookingSuccess(true);
-      setTimeout(() => handleCloseModal(), 2000);
-    } catch (error) {
-      console.error("Error booking appointment:", error);
-      alert(`Error: ${error.message}`);
+      setTimeout(() => handleCloseModal(), 2500);
+    } catch (err) {
+      console.error("Error booking appointment:", err);
+      alert(`Error: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, index) => (
-      <Star
-        key={index}
-        className={`w-4 h-4 ${
-          index < Math.floor(rating)
-            ? "text-yellow-400 fill-current"
-            : "text-gray-300"
-        }`}
-      />
-    ));
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="flex items-center justify-center min-h-64">
+      <MainLayout userType="patient">
+        <div className="flex items-center justify-center h-96">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading doctors...</p>
+            <div className="w-10 h-10 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Loading doctors…</p>
           </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="flex items-center justify-center min-h-64">
-          <div className="text-center">
-            <p className="text-red-600">Error: {error}</p>
+      <MainLayout userType="patient">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center bg-white rounded-2xl p-10 border border-red-100 shadow-sm max-w-sm">
+            <p className="font-semibold text-gray-800 mb-1">Failed to load</p>
+            <p className="text-sm text-red-500">{error}</p>
           </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
     <MainLayout userType="patient">
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center flex-shrink-0">
+            <Calendar className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Book an Appointment
-            </h1>
-            <p className="text-gray-600">
-              Schedule a consultation with our doctors
-            </p>
+            <h1 className="text-xl font-bold text-gray-900">Book an Appointment</h1>
+            <p className="text-sm text-gray-400">Schedule a consultation with our doctors</p>
           </div>
+        </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder="Search doctors by name, email, or specialization..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-              </div>
-              <select
-                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 md:w-48"
-                value={selectedSpecialty}
-                onChange={(e) => setSelectedSpecialty(e.target.value)}
-              >
-                {specialties.map((specialty) => (
-                  <option key={specialty} value={specialty}>
-                    {specialty}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 md:w-48"
-                value={selectedHospital || ""}
-                onChange={(e) => setSelectedHospital(e.target.value)}
-              >
-                <option value="">Select Hospital</option>
-                {hospitals.map((hospital) => (
-                  <option key={hospital.id} value={hospital.id}>
-                    {hospital.name}
-                  </option>
-                ))}
-              </select>
+        {/* Search / filters */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or specialization…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-400 bg-white"
+              />
             </div>
+            <select
+              value={selectedSpecialty}
+              onChange={(e) => setSelectedSpecialty(e.target.value)}
+              className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-200 sm:w-44 bg-white"
+            >
+              {specialties.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
+          {(searchTerm || (selectedSpecialty && selectedSpecialty !== "All Specialties")) && (
+            <p className="text-xs text-gray-400 mt-2">
+              {filteredDoctors.length} doctor{filteredDoctors.length !== 1 ? "s" : ""} found
+            </p>
+          )}
+        </div>
 
-          <div className="text-sm text-gray-600">
-            Showing {filteredDoctors.length} doctor
-            {filteredDoctors.length !== 1 ? "s" : ""}
-            {searchTerm && ` for "${searchTerm}"`}
-            {selectedSpecialty &&
-              selectedSpecialty !== "All Specialties" &&
-              ` in ${selectedSpecialty}`}
-            {selectedHospital &&
-              ` at ${
-                hospitals.find((h) => h.id === parseInt(selectedHospital))?.name
-              }`}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDoctors.length === 0 ? (
-              <div className="col-span-full text-center py-12">
-                <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600">
-                  No doctors found matching your criteria
-                </p>
+        {/* Doctor grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredDoctors.length === 0 ? (
+            <div className="col-span-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
+              <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <User className="w-7 h-7 text-gray-300" />
               </div>
-            ) : (
-              filteredDoctors.map((doctor) => (
+              <p className="font-semibold text-gray-600">No doctors found</p>
+              <p className="text-gray-400 text-sm mt-1">Try a different search or specialty</p>
+            </div>
+          ) : (
+            filteredDoctors.map((doctor) => {
+              const initial = doctor.name
+                .split(" ")
+                .map((n: string) => n[0])
+                .join("")
+                .slice(0, 2);
+              return (
                 <div
                   key={doctor.id}
-                  className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:border-teal-200 hover:shadow-md transition-all group"
                 >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center">
-                      <span className="text-2xl text-blue-600 font-medium">
-                        {doctor.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </span>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold">{initial}</span>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{doctor.name}</h3>
-                      <p className="text-blue-600 font-medium">
-                        {doctor.specialization}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {renderStars(doctor.rating)}
-                        <span className="text-sm text-gray-500 ml-1">
-                          {doctor.rating} ({doctor.reviews} reviews)
-                        </span>
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{doctor.name}</p>
+                      <p className="text-sm text-teal-600 font-medium">{doctor.specialization}</p>
                     </div>
                   </div>
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Award className="w-4 h-4 text-blue-500" />
-                      <span>{doctor.experience} experience</span>
+
+                  <div className="space-y-2 mb-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="w-4 h-4 text-teal-400 flex-shrink-0" />
+                      <span className="truncate">{doctor.email || "—"}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="w-4 h-4 text-green-500" />
-                      <span>{doctor.availability}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock className="w-4 h-4 text-orange-500" />
-                      <span>30 min consultation</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <MapPin className="w-4 h-4 text-purple-500" />
-                      <span>{doctor.location}</span>
-                    </div>
-                    {doctor.email && (
-                      <div className="text-sm text-gray-600">
-                        <span>{doctor.email}</span>
-                      </div>
-                    )}
                     {doctor.phone && (
-                      <div className="text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-teal-400 flex-shrink-0" />
                         <span>{doctor.phone}</span>
                       </div>
                     )}
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                    <p className="text-sm text-gray-600">Consultation Fee</p>
-                    <p className="text-lg font-semibold text-blue-600">
-                      ${doctor.consultationFee}
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-1"
-                      onClick={() => handleBookAppointment(doctor)}
-                    >
-                      Book Now
-                    </button>
-                    <button className="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex-1">
-                      View Profile
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {isModalOpen && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                {bookingSuccess ? (
-                  <div className="p-6 text-center">
-                    <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-semibold text-green-800 mb-2">
-                      Appointment Request Successfully Sent!
-                    </h2>
-                    <p className="text-gray-600 mb-4">
-                      Your appointment with {selectedDoctor?.name} has been
-                      successfully requested.
-                    </p>
-                    <div className="bg-green-50 p-4 rounded-lg text-left">
-                      <p className="text-sm text-green-800">
-                        <strong>Date:</strong> {selectedDate}
-                      </p>
-                      <p className="text-sm text-green-800">
-                        <strong>Time:</strong> {selectedTime}
-                      </p>
-                      <p className="text-sm text-green-800">
-                        <strong>Type:</strong>{" "}
-                        {
-                          appointmentTypes.find(
-                            (t) => t.value === appointmentType
-                          )?.label
-                        }
-                      </p>
-                      <p className="text-sm text-green-800">
-                        <strong>Doctor:</strong> {selectedDoctor?.name}
-                      </p>
-                      <p className="text-sm text-green-800">
-                        <strong>Patient:</strong> {patientName}
-                      </p>
-                      <p className="text-sm text-green-800">
-                        <strong>Hospital:</strong>{" "}
-                        {
-                          doctorHospitals.find(
-                            (h) => h.id === parseInt(selectedHospital)
-                          )?.name
-                        }
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between p-6 border-b">
-                      <h2 className="text-xl font-semibold">
-                        Book Appointment
-                      </h2>
-                      <button
-                        onClick={handleCloseModal}
-                        className="p-2 hover:bg-gray-100 rounded-full"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    {selectedDoctor && (
-                      <div className="p-6 border-b bg-gray-50">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                            <span className="text-blue-600 font-medium">
-                              {selectedDoctor.name
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                            </span>
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">
-                              {selectedDoctor.name}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {selectedDoctor.specialization}
-                            </p>
-                            <p className="text-sm text-blue-600 font-medium">
-                              ${selectedDoctor.consultationFee}
-                            </p>
-                          </div>
-                        </div>
+                    {doctor.institute && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-teal-400 flex-shrink-0" />
+                        <span className="truncate">{doctor.institute}</span>
                       </div>
                     )}
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Select Hospital
-                        </label>
-                        <select
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={selectedHospital || ""}
-                          onChange={(e) => setSelectedHospital(e.target.value)}
-                        >
-                          <option value="">Select Hospital</option>
-                          {doctorHospitals.map((hospital) => (
-                            <option key={hospital.id} value={hospital.id}>
-                              {hospital.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Select Date
-                        </label>
-                        <select
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={selectedDate}
-                          onChange={(e) => handleDateSelection(e.target.value)}
-                          disabled={!selectedHospital}
-                        >
-                          <option value="">
-                            {!selectedHospital
-                              ? "Select a hospital first"
-                              : availableDates.length === 0
-                              ? "No available dates"
-                              : "Select a date"}
-                          </option>
-                          {availableDates.map((date) => (
-                            <option key={date} value={date}>
-                              {new Date(date).toLocaleDateString("en-US", {
-                                weekday: "long",
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {selectedDate && timeSlots.length > 0 && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Select Time
-                          </label>
-                          <select
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                            value={selectedTime}
-                            onChange={(e) => setSelectedTime(e.target.value)}
-                          >
-                            <option value="">Select a time</option>
-                            {timeSlots.map((slot, index) => (
-                              <option key={index} value={slot.display}>
-                                {slot.display}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                      {selectedDate && timeSlots.length === 0 && (
-                        <div className="text-center py-4">
-                          <p className="text-gray-500">
-                            No available time slots for the selected date
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Appointment Type
-                        </label>
-                        <select
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          value={appointmentType}
-                          onChange={(e) => setAppointmentType(e.target.value)}
-                        >
-                          <option value="">Choose appointment type</option>
-                          {appointmentTypes.map((type) => (
-                            <option key={type.value} value={type.value}>
-                              {type.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                  </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Reason for Visit
-                        </label>
-                        <textarea
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[100px]"
-                          placeholder="Please describe your symptoms or reason for visit..."
-                          value={reasonForVisit}
-                          onChange={(e) => setReasonForVisit(e.target.value)}
-                        />
-                      </div>
-                      <div className="flex gap-3 pt-4">
-                        <button
-                          type="button"
-                          className="border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex-1"
-                          onClick={handleCloseModal}
-                          disabled={isSubmitting}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-1"
-                          onClick={handleSubmitBooking}
-                          disabled={
-                            isSubmitting ||
-                            !selectedDate ||
-                            !selectedTime ||
-                            !appointmentType ||
-                            !reasonForVisit ||
-                            !selectedHospital
-                          }
-                        >
-                          {isSubmitting ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Booking...
-                            </div>
-                          ) : (
-                            "Confirm Booking"
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                  <button
+                    onClick={() => handleBookAppointment(doctor)}
+                    className="w-full bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                  >
+                    Book Now
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
+
+        {/* Booking modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+              {bookingSuccess ? (
+                <div className="p-8 text-center">
+                  <CheckCircle className="w-14 h-14 text-emerald-500 mx-auto mb-4" />
+                  <h2 className="text-lg font-bold text-gray-900 mb-2">Appointment Requested!</h2>
+                  <p className="text-gray-500 text-sm mb-4">
+                    Your appointment with Dr. {selectedDoctor?.name} has been successfully requested.
+                  </p>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-left text-sm text-emerald-800 space-y-1">
+                    <p><span className="font-semibold">Date:</span> {selectedDate}</p>
+                    <p><span className="font-semibold">Time:</span> {selectedTime}</p>
+                    <p><span className="font-semibold">Type:</span> {appointmentTypes.find(t => t.value === appointmentType)?.label}</p>
+                    <p><span className="font-semibold">Doctor:</span> Dr. {selectedDoctor?.name}</p>
+                    <p><span className="font-semibold">Hospital:</span> {doctorHospitals.find(h => h.id === parseInt(selectedHospital))?.name}</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Modal header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <h2 className="font-bold text-gray-900">Book Appointment</h2>
+                    <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+
+                  {/* Doctor summary */}
+                  {selectedDoctor && (
+                    <div className="px-6 py-4 bg-teal-50 border-b border-teal-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">
+                            {selectedDoctor.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">Dr. {selectedDoctor.name}</p>
+                          <p className="text-sm text-teal-600">{selectedDoctor.specialization}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form */}
+                  <div className="p-6 space-y-4">
+                    {/* Hospital */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Select Hospital</label>
+                      <select
+                        value={selectedHospital}
+                        onChange={(e) => setSelectedHospital(e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      >
+                        <option value="">Choose a hospital</option>
+                        {doctorHospitals.map((h) => (
+                          <option key={h.id} value={h.id}>{h.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Select Date</label>
+                      <select
+                        value={selectedDate}
+                        onChange={(e) => handleDateSelection(e.target.value)}
+                        disabled={!selectedHospital}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">
+                          {!selectedHospital ? "Select a hospital first" : availableDates.length === 0 ? "No available dates" : "Choose a date"}
+                        </option>
+                        {availableDates.map((date) => (
+                          <option key={date} value={date}>
+                            {new Date(date).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Time */}
+                    {selectedDate && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Select Time</label>
+                        {slotsLoading ? (
+                          <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                            <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                            Loading slots…
+                          </div>
+                        ) : timeSlots.length > 0 ? (
+                          <select
+                            value={selectedTime}
+                            onChange={(e) => setSelectedTime(e.target.value)}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                          >
+                            <option value="">Choose a time slot</option>
+                            {timeSlots.map((slot, i) => (
+                              <option key={i} value={slot.value}>{slot.display}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="text-sm text-gray-400 py-2">No available time slots for this date</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Appointment type */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Appointment Type</label>
+                      <select
+                        value={appointmentType}
+                        onChange={(e) => setAppointmentType(e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      >
+                        <option value="">Choose type</option>
+                        {appointmentTypes.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Reason */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Reason for Visit</label>
+                      <textarea
+                        value={reasonForVisit}
+                        onChange={(e) => setReasonForVisit(e.target.value)}
+                        placeholder="Describe your symptoms or reason for the visit…"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-400 min-h-[90px] resize-none"
+                      />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={handleCloseModal}
+                        disabled={isSubmitting}
+                        className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSubmitBooking}
+                        disabled={isSubmitting || !selectedDate || !selectedTime || !appointmentType || !reasonForVisit || !selectedHospital}
+                        className="flex-1 bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {isSubmitting ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Booking…
+                          </span>
+                        ) : "Confirm Booking"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

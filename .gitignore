@@ -1,0 +1,11 @@
+# Environment secrets — never commit these
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml

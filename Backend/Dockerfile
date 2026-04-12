@@ -1,14 +1,18 @@
-# Use OpenJDK 17 as base image
-FROM openjdk:17-jdk-slim
-
-# Set working directory
+# Stage 1: Build with Maven
+FROM maven:3.9-eclipse-temurin-17-alpine AS build
 WORKDIR /app
 
-# Copy the pre-built JAR file from target folder
-COPY target/prescription-system-0.0.1-SNAPSHOT.jar app.jar
+# Cache dependencies layer separately for faster rebuilds
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
 
-# Expose port 8080
+# Build the application
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+# Stage 2: Minimal runtime image
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/prescription-system-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
-
-# Run the application
 CMD ["java", "-jar", "app.jar"]

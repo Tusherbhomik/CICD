@@ -1,5 +1,5 @@
 import MainLayout from "@/components/layout/MainLayout";
-import { API_BASE_URL } from '@/url';
+import { API_BASE_URL } from "@/url";
 import {
   CheckCircle,
   Clock,
@@ -10,8 +10,11 @@ import {
   XCircle,
   Calendar,
   Loader2,
+  CalendarDays,
+  AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface Patient {
   id: number;
@@ -45,8 +48,26 @@ interface ScheduleFormData {
   notes: string;
 }
 
+type Tab = "pending" | "confirmed" | "completed";
+
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case "VIDEO":
+      return <Video className="w-3.5 h-3.5" />;
+    case "PHONE":
+      return <Phone className="w-3.5 h-3.5" />;
+    default:
+      return <MapPin className="w-3.5 h-3.5" />;
+  }
+};
+
+const fmtDate = (s: string) =>
+  s ? new Date(s).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
+const fmtTime = (s: string) =>
+  s ? new Date(s).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—";
+
 const AppointmentSchedule = () => {
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState<Tab>("pending");
   const [showModal, setShowModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<AppointmentRequest | null>(null);
   const [formData, setFormData] = useState<ScheduleFormData>({
@@ -57,530 +78,478 @@ const AppointmentSchedule = () => {
     notes: "",
   });
 
-  // State for API data
   const [pendingRequests, setPendingRequests] = useState<AppointmentRequest[]>([]);
   const [confirmedAppointments, setConfirmedAppointments] = useState<AppointmentRequest[]>([]);
+  const [completedAppointments, setCompletedAppointments] = useState<AppointmentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
-  // Fetch pending requests
-  const fetchPendingRequests = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/appointments/doctor/pending`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch pending requests");
-      }
-      const data = await response.json();
-      setPendingRequests(data);
-    } catch (error) {
-      console.error("Error fetching pending requests:", error);
-      setPendingRequests([]);
-    }
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
   };
 
-  // Fetch confirmed appointments
-  const fetchConfirmedAppointments = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/appointments/doctor/confirmed`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch confirmed appointments");
-      }
-      const data = await response.json();
-      setConfirmedAppointments(data);
-    } catch (error) {
-      console.error("Error fetching confirmed appointments:", error);
-      setConfirmedAppointments([]);
-    }
+  const fetchPending = async () => {
+    const res = await fetch(`${API_BASE_URL}/api/appointments/doctor/pending`, { credentials: "include" });
+    if (res.ok) setPendingRequests(await res.json());
+    else setPendingRequests([]);
   };
 
-  // Initial data fetch
+  const fetchConfirmed = async () => {
+    const res = await fetch(`${API_BASE_URL}/api/appointments/doctor/confirmed`, { credentials: "include" });
+    if (res.ok) setConfirmedAppointments(await res.json());
+    else setConfirmedAppointments([]);
+  };
+
+  const fetchCompleted = async () => {
+    const res = await fetch(`${API_BASE_URL}/api/appointments/doctor/all?status=COMPLETED`, { credentials: "include" });
+    if (res.ok) setCompletedAppointments(await res.json());
+    else setCompletedAppointments([]);
+  };
+
   useEffect(() => {
-    const loadData = async () => {
+    const load = async () => {
       setIsLoading(true);
-      await Promise.all([fetchPendingRequests(), fetchConfirmedAppointments()]);
+      await Promise.all([fetchPending(), fetchConfirmed(), fetchCompleted()]);
       setIsLoading(false);
     };
-    loadData();
+    load();
   }, []);
 
-  const handleScheduleAppointment = (request: AppointmentRequest) => {
+  const openScheduleModal = (request: AppointmentRequest) => {
     setSelectedRequest(request);
-    setShowModal(true);
-    
-    // Pre-fill form with request data if available
-    const requestDate = new Date(request.scheduledTime);
+    const d = new Date(request.scheduledTime);
     setFormData({
-      scheduledTime: requestDate.toTimeString().slice(0, 5), // HH:MM format
-      scheduledDate: requestDate.toISOString().slice(0, 10), // YYYY-MM-DD format
+      scheduledDate: d.toISOString().slice(0, 10),
+      scheduledTime: d.toTimeString().slice(0, 5),
       type: request.type || "IN_PERSON",
       location: "",
       notes: "",
     });
+    setShowModal(true);
   };
 
-  const handleFormSubmit = async () => {
+  const handleConfirm = async () => {
     if (!formData.scheduledDate || !formData.scheduledTime || !formData.location) {
-      alert("Please fill in all required fields");
+      showToast("error", "Please fill in all required fields.");
       return;
     }
-
     if (!selectedRequest) return;
 
     setIsSubmitting(true);
     try {
-      // Combine date and time into LocalDateTime format
-      const scheduledDateTime = `${formData.scheduledDate}T${formData.scheduledTime}:00`;
-
-      const scheduleData = {
-        scheduledTime: scheduledDateTime,
-        type: formData.type,
-        location: formData.location,
-        notes: formData.notes,
-      };
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/appointments/${selectedRequest.id}/schedule`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(scheduleData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to schedule appointment");
-      }
-
-      const result = await response.json();
-      console.log("Appointment scheduled:", result);
-
-      // Refresh data
-      await Promise.all([fetchPendingRequests(), fetchConfirmedAppointments()]);
-      
-      // Close modal and reset form
-      setShowModal(false);
-      setFormData({
-        scheduledTime: "",
-        scheduledDate: "",
-        type: "IN_PERSON",
-        location: "",
-        notes: "",
+      const res = await fetch(`${API_BASE_URL}/api/appointments/${selectedRequest.id}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          scheduledTime: `${formData.scheduledDate}T${formData.scheduledTime}:00`,
+          type: formData.type,
+          location: formData.location,
+          notes: formData.notes,
+        }),
       });
-      
-      alert("Appointment scheduled successfully!");
-    } catch (error) {
-      console.error("Error scheduling appointment:", error);
-      alert(`Error scheduling appointment:`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to confirm appointment");
+
+      showToast("success", "Appointment confirmed successfully.");
+      setShowModal(false);
+      await Promise.all([fetchPending(), fetchConfirmed()]);
+    } catch (err: any) {
+      showToast("error", err.message || "Error confirming appointment.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleRejectRequest = async (requestId: number) => {
-    if (!confirm("Are you sure you want to reject this appointment request?")) {
-      return;
-    }
-
+  const handleReject = async (requestId: number) => {
+    setActionLoadingId(requestId);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/appointments/${requestId}/reject?doctorId=${selectedRequest?.doctor?.id || 1}`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to reject appointment");
-      }
-
-      // Refresh pending requests
-      await fetchPendingRequests();
-      alert("Appointment request rejected successfully");
-    } catch (error) {
-      console.error("Error rejecting appointment:", error);
-      alert(`Error rejecting appointment: `);
+      const res = await fetch(`${API_BASE_URL}/api/appointments/${requestId}/reject`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to reject appointment");
+      showToast("success", "Appointment request rejected.");
+      await fetchPending();
+    } catch (err: any) {
+      showToast("error", err.message || "Error rejecting appointment.");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "VIDEO":
-        return <Video className="w-4 h-4" />;
-      case "PHONE":
-        return <Phone className="w-4 h-4" />;
-      default:
-        return <MapPin className="w-4 h-4" />;
+  const handleComplete = async (appointmentId: number) => {
+    setActionLoadingId(appointmentId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/appointments/${appointmentId}/complete`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to complete appointment");
+      showToast("success", "Appointment marked as completed.");
+      await Promise.all([fetchConfirmed(), fetchCompleted()]);
+    } catch (err: any) {
+      showToast("error", err.message || "Error completing appointment.");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
-  const formatDateTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return {
-      date: date.toLocaleDateString(),
-      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-  };
-
-  const calculateAge = (birthDate: string) => {
-    if (!birthDate) return "N/A";
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
+  const handleCancel = async (appointmentId: number) => {
+    setActionLoadingId(appointmentId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/appointments/${appointmentId}/cancel`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel appointment");
+      showToast("success", "Appointment cancelled.");
+      await Promise.all([fetchConfirmed(), fetchPending()]);
+    } catch (err: any) {
+      showToast("error", err.message || "Error cancelling appointment.");
+    } finally {
+      setActionLoadingId(null);
     }
-    return age;
   };
 
   if (isLoading) {
     return (
       <MainLayout userType="doctor">
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="flex items-center justify-center min-h-64">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-              <p className="text-gray-600">Loading appointments...</p>
-            </div>
+        <div className="flex items-center justify-center h-80">
+          <div className="text-center">
+            <div className="w-10 h-10 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Loading appointments…</p>
           </div>
         </div>
       </MainLayout>
     );
   }
 
+  const tabs: { key: Tab; label: string; count: number }[] = [
+    { key: "pending",   label: "Pending Requests", count: pendingRequests.length },
+    { key: "confirmed", label: "Confirmed",         count: confirmedAppointments.length },
+    { key: "completed", label: "Completed",         count: completedAppointments.length },
+  ];
+
   return (
     <MainLayout userType="doctor">
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Appointment Management
-              </h1>
-              <p className="text-gray-600">
-                Manage patient requests and scheduled appointments
-              </p>
-            </div>
-          </div>
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
 
-          {/* Tab Navigation */}
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
-              {/* <button
-                onClick={() => setActiveTab("pending")}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === "pending"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                Pending Requests ({pendingRequests.length})
-              </button> */}
+        {/* Toast */}
+        {toast && (
+          <div className={cn(
+            "fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all",
+            toast.type === "success"
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          )}>
+            {toast.type === "success"
+              ? <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+            {toast.message}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center flex-shrink-0">
+            <CalendarDays className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Appointment Management</h1>
+            <p className="text-sm text-gray-400">Review requests and manage scheduled appointments</p>
+          </div>
+        </div>
+
+        {/* Stats strip */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Pending",   value: pendingRequests.length,    color: "text-amber-600 bg-amber-50 border-amber-100" },
+            { label: "Confirmed", value: confirmedAppointments.length, color: "text-sky-600 bg-sky-50 border-sky-100" },
+            { label: "Completed", value: completedAppointments.length, color: "text-emerald-600 bg-emerald-50 border-emerald-100" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className={`rounded-2xl border p-4 ${color}`}>
+              <p className="text-xs font-semibold uppercase tracking-wider opacity-70">{label}</p>
+              <p className="text-2xl font-bold mt-1">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex border-b border-gray-100">
+            {tabs.map(({ key, label, count }) => (
               <button
-                onClick={() => setActiveTab("confirmed")}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === "confirmed"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={cn(
+                  "flex-1 py-3 px-4 text-sm font-semibold transition-colors",
+                  activeTab === key
+                    ? "border-b-2 border-sky-500 text-sky-600"
+                    : "text-gray-400 hover:text-gray-600"
+                )}
               >
-                Confirmed Appointments ({confirmedAppointments.length})
+                {label}
+                <span className={cn(
+                  "ml-1.5 text-xs px-1.5 py-0.5 rounded-full",
+                  activeTab === key ? "bg-sky-100 text-sky-600" : "bg-gray-100 text-gray-400"
+                )}>
+                  {count}
+                </span>
               </button>
-            </nav>
+            ))}
           </div>
 
-          {/* Pending Requests Tab */}
-          {activeTab === "pending" && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Patient Appointment Requests
-              </h2>
+          <div className="p-4 space-y-3">
 
-              {pendingRequests.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No pending appointment requests</p>
-                </div>
+            {/* Pending tab */}
+            {activeTab === "pending" && (
+              pendingRequests.length === 0 ? (
+                <EmptyState icon={<Calendar className="w-7 h-7 text-gray-300" />} text="No pending appointment requests" />
               ) : (
-                pendingRequests.map((request) => {
-                  const { date, time } = formatDateTime(request.scheduledTime);
-                  return (
-                    <div
-                      key={request.id}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <User className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900">
-                                {request.patient.name}
-                              </h3>
-                              <p className="text-sm text-gray-600">
-                                {request.patient.email} • {request.patient.phone}
-                              </p>
-                            </div>
-                          </div>
+                pendingRequests.map((req) => (
+                  <div key={req.id} className="flex items-start gap-4 p-4 rounded-xl border border-gray-100 hover:border-sky-100 hover:bg-sky-50/30 transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {req.patient.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm">{req.patient.name}</p>
+                      <p className="text-xs text-gray-400">{req.patient.email}{req.patient.phone ? ` · ${req.patient.phone}` : ""}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(req.scheduledTime)}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{fmtTime(req.scheduledTime)}</span>
+                        <span className="flex items-center gap-1">{getTypeIcon(req.type)}{req.type.replace("_", " ")}</span>
+                      </div>
+                      {req.notes && (
+                        <p className="text-xs text-gray-500 mt-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5">
+                          <span className="font-medium text-gray-600">Reason: </span>{req.notes}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => openScheduleModal(req)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => handleReject(req.id)}
+                        disabled={actionLoadingId === req.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg border border-red-100 transition-colors disabled:opacity-50"
+                      >
+                        {actionLoadingId === req.id
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <XCircle className="w-3.5 h-3.5" />}
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )
+            )}
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Reason for Visit:
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {request.notes || "General consultation"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Requested Date & Time:
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {date} at {time}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Appointment Type:
-                              </p>
-                              <p className="text-sm text-gray-600 flex items-center gap-1">
-                                {getTypeIcon(request.type)}
-                                {request.type.replace('_', ' ')}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Request Date:
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {formatDateTime(request.createdAt).date}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+            {/* Confirmed tab */}
+            {activeTab === "confirmed" && (
+              confirmedAppointments.length === 0 ? (
+                <EmptyState icon={<Clock className="w-7 h-7 text-gray-300" />} text="No confirmed appointments" />
+              ) : (
+                confirmedAppointments.map((apt) => (
+                  <div key={apt.id} className="flex items-start gap-4 p-4 rounded-xl border border-gray-100 hover:border-sky-100 transition-all">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {apt.patient.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-900 text-sm">{apt.patient.name}</p>
+                        <span className="text-xs bg-sky-50 text-sky-700 border border-sky-100 font-semibold px-2 py-0.5 rounded-full">
+                          CONFIRMED
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">{apt.patient.email}{apt.patient.phone ? ` · ${apt.patient.phone}` : ""}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(apt.scheduledTime)}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{fmtTime(apt.scheduledTime)}</span>
+                        <span className="flex items-center gap-1">{getTypeIcon(apt.type)}{apt.type.replace("_", " ")}</span>
+                      </div>
+                      {apt.notes && (
+                        <p className="text-xs text-gray-500 mt-1.5">
+                          <span className="font-medium text-gray-600">Notes: </span>{apt.notes}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleComplete(apt.id)}
+                        disabled={actionLoadingId === apt.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {actionLoadingId === apt.id
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <CheckCircle className="w-3.5 h-3.5" />}
+                        Complete
+                      </button>
+                      <button
+                        onClick={() => handleCancel(apt.id)}
+                        disabled={actionLoadingId === apt.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg border border-red-100 transition-colors disabled:opacity-50"
+                      >
+                        {actionLoadingId === apt.id
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <XCircle className="w-3.5 h-3.5" />}
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )
+            )}
 
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleScheduleAppointment(request)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            Schedule
-                          </button>
-                          <button
-                            onClick={() => handleRejectRequest(request.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Reject
-                          </button>
-                        </div>
+            {/* Completed tab */}
+            {activeTab === "completed" && (
+              completedAppointments.length === 0 ? (
+                <EmptyState icon={<CheckCircle className="w-7 h-7 text-gray-300" />} text="No completed appointments yet" />
+              ) : (
+                completedAppointments.map((apt) => (
+                  <div key={apt.id} className="flex items-start gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/40">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {apt.patient.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-900 text-sm">{apt.patient.name}</p>
+                        <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold px-2 py-0.5 rounded-full">
+                          COMPLETED
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">{apt.patient.email}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(apt.scheduledTime)}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{fmtTime(apt.scheduledTime)}</span>
+                        <span className="flex items-center gap-1">{getTypeIcon(apt.type)}{apt.type.replace("_", " ")}</span>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          )}
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        </div>
 
-          {/* Confirmed Appointments Tab */}
-          {activeTab === "confirmed" && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Confirmed Appointments
-              </h2>
-
-              {confirmedAppointments.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-                  <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No confirmed appointments</p>
+        {/* Confirm modal */}
+        {showModal && selectedRequest && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center">
+                  <CalendarDays className="w-5 h-5 text-sky-600" />
                 </div>
-              ) : (
-                confirmedAppointments.map((appointment) => {
-                  const { date, time } = formatDateTime(appointment.scheduledTime);
-                  return (
-                    <div
-                      key={appointment.id}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <Clock className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-semibold text-gray-900">
-                                {appointment.patient.name}
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-2">
-                                {appointment.patient.email} • {appointment.patient.phone}
-                              </p>
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4" />
-                                  {date} at {time}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  {getTypeIcon(appointment.type)}
-                                  {appointment.type.replace('_', ' ')}
-                                </span>
-                              </div>
-                              {appointment.notes && (
-                                <p className="text-sm text-gray-600 mt-2">
-                                  <strong>Notes:</strong> {appointment.notes}
-                                </p>
-                              )}
-                            </div>
-                            <span className="bg-green-100 text-green-800 px-2.5 py-0.5 rounded-full text-xs font-medium">
-                              {appointment.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
+                <div>
+                  <h3 className="font-bold text-gray-900">Confirm Appointment</h3>
+                  <p className="text-xs text-gray-400">{selectedRequest.patient.name}</p>
+                </div>
+              </div>
 
-          {/* Scheduling Modal */}
-          {showModal && selectedRequest && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg max-w-md w-full p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Schedule Appointment for {selectedRequest.patient.name}
-                </h3>
-
-                <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date *
-                    </label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Date *</label>
                     <input
                       type="date"
                       value={formData.scheduledDate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          scheduledDate: e.target.value,
-                        })
-                      }
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Time *
-                    </label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Time *</label>
                     <input
                       type="time"
                       value={formData.scheduledTime}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          scheduledTime: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Appointment Type
-                    </label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) =>
-                        setFormData({ ...formData, type: e.target.value })
-                      }
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="IN_PERSON">In-Person</option>
-                      <option value="VIDEO">Video Call</option>
-                      <option value="PHONE">Phone Call</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
+                  >
+                    <option value="IN_PERSON">In-Person</option>
+                    <option value="VIDEO">Video Call</option>
+                    <option value="PHONE">Phone Call</option>
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Location/Details *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={
-                        formData.type === "IN_PERSON"
-                          ? "Room number or location"
-                          : "Meeting link or phone number"
-                      }
-                      value={formData.location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
-                      }
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    {formData.type === "IN_PERSON" ? "Location / Room *" : "Meeting Link / Phone *"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={formData.type === "IN_PERSON" ? "e.g. Room 3, 2nd Floor" : "e.g. https://meet.google.com/..."}
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Notes (Optional)
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Any additional notes or instructions"
-                      value={formData.notes}
-                      onChange={(e) =>
-                        setFormData({ ...formData, notes: e.target.value })
-                      }
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Notes (optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Any instructions for the patient…"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 resize-none"
+                  />
+                </div>
 
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={handleFormSubmit}
-                      disabled={isSubmitting}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2 px-4 rounded-md font-medium flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                      {isSubmitting ? "Scheduling..." : "Confirm Appointment"}
-                    </button>
-                    <button
-                      onClick={() => setShowModal(false)}
-                      disabled={isSubmitting}
-                      className="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-700 py-2 px-4 rounded-md font-medium"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleConfirm}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isSubmitting ? "Confirming…" : "Confirm Appointment"}
+                  </button>
+                  <button
+                    onClick={() => setShowModal(false)}
+                    disabled={isSubmitting}
+                    className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
 };
+
+const EmptyState = ({ icon, text }: { icon: React.ReactNode; text: string }) => (
+  <div className="text-center py-16">
+    <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+      {icon}
+    </div>
+    <p className="text-gray-400 text-sm">{text}</p>
+  </div>
+);
 
 export default AppointmentSchedule;
